@@ -113,27 +113,7 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body suppressHydrationWarning>
-        <div id="google_translate_element" style={{ display: "none" }} suppressHydrationWarning />
         {children}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.googleTranslateElementInit = function() {
-                try {
-                  new window.google.translate.TranslateElement({
-                    pageLanguage: 'en',
-                    includedLanguages: 'en,hi,mr,ta,te,kn,gu,bn,pa,ur',
-                    autoDisplay: false
-                  }, 'google_translate_element');
-                } catch(e) {}
-              };
-            `,
-          }}
-        />
-        <script
-          src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
-          async
-        />
         <Scripts />
       </body>
     </html>
@@ -144,11 +124,43 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    if (typeof window === "undefined") return;
+
+    if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch((err) => {
         console.warn("ServiceWorker registration failed:", err);
       });
     }
+
+    // Defer Google Translate until after React hydration is completely done
+    const timer = setTimeout(() => {
+      if (document.getElementById("google_translate_element")) return;
+
+      const container = document.createElement("div");
+      container.id = "google_translate_element";
+      container.style.display = "none";
+      document.body.appendChild(container);
+
+      (window as any).googleTranslateElementInit = function () {
+        try {
+          new (window as any).google.translate.TranslateElement(
+            {
+              pageLanguage: "en",
+              includedLanguages: "en,hi,mr,ta,te,kn,gu,bn,pa,ur",
+              autoDisplay: false,
+            },
+            "google_translate_element"
+          );
+        } catch (e) {}
+      };
+
+      const script = document.createElement("script");
+      script.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+      script.async = true;
+      document.body.appendChild(script);
+    }, 1200);
+
+    return () => clearTimeout(timer);
   }, []);
 
   return (

@@ -241,38 +241,29 @@ function AuthPage() {
               </p>
             </div>
 
-            {/* Live Telemetry Card Preview */}
-            <div className="rounded-xl border border-border bg-card/70 p-4 shadow-sm backdrop-blur-xs">
-              <div className="flex items-center justify-between border-b border-border pb-2.5 mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                  </span>
-                  <span className="text-xs font-bold font-mono">TAG: IN-MH-15-C8821</span>
-                </div>
-                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  Normal • BDI 0.24 (Low Risk)
+            {/* System Security & Access Compliance */}
+            <div className="rounded-xl border border-border bg-card/70 p-4 shadow-sm backdrop-blur-xs space-y-3">
+              <div className="flex items-center gap-2 border-b border-border pb-2.5">
+                <Shield className="h-4 w-4 text-primary" />
+                <span className="text-xs font-bold font-display uppercase tracking-wide text-foreground">
+                  Official Role-Based Security Tier
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="rounded-lg bg-surface p-2">
-                  <div className="flex items-center gap-1 text-muted-foreground text-[10px]">
-                    <Thermometer className="h-3 w-3" /> Core Temp
-                  </div>
-                  <p className="mt-0.5 font-bold font-mono">38.6 °C</p>
+                <div className="rounded-lg bg-surface p-2.5">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Tier 1</p>
+                  <p className="font-semibold text-foreground text-xs mt-0.5">Block Vet (BVO)</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Outbreak containment & lab slips</p>
                 </div>
-                <div className="rounded-lg bg-surface p-2">
-                  <div className="flex items-center gap-1 text-muted-foreground text-[10px]">
-                    <HeartPulse className="h-3 w-3" /> Heart Rate
-                  </div>
-                  <p className="mt-0.5 font-bold font-mono">72 bpm</p>
+                <div className="rounded-lg bg-surface p-2.5">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Tier 2</p>
+                  <p className="font-semibold text-foreground text-xs mt-0.5">Para-Vet (LDO)</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Field reports & animal registry</p>
                 </div>
-                <div className="rounded-lg bg-surface p-2">
-                  <div className="flex items-center gap-1 text-muted-foreground text-[10px]">
-                    <MapPin className="h-3 w-3" /> Location
-                  </div>
-                  <p className="mt-0.5 font-bold truncate">Dindori Gaothan</p>
+                <div className="rounded-lg bg-surface p-2.5">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Tier 3</p>
+                  <p className="font-semibold text-foreground text-xs mt-0.5">Livestock Farmer</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Vernacular voice symptom reports</p>
                 </div>
               </div>
             </div>
@@ -557,35 +548,12 @@ function AuthPage() {
                 </div>
               )}
 
-              {/* Fast 1-Click Evaluation Shortcuts */}
-              <div className="mt-6 rounded-lg border border-border bg-surface/50 p-3">
-                <p className="label-caps mb-1 text-center text-primary font-bold">1-Click Evaluation Login</p>
-                <p className="text-[11px] text-muted-foreground text-center mb-2">
-                  Instant role testing for judges and evaluators without typing:
+              {/* Secure Authentication Notice */}
+              <div className="mt-5 rounded-lg border border-border/70 bg-surface/40 p-3 text-center">
+                <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5 font-medium">
+                  <Shield className="h-3.5 w-3.5 text-primary" />
+                  Protected by End-to-End Credential Encryption & Role-Based Access
                 </p>
-                <div className="grid gap-1.5 sm:grid-cols-3">
-                  <button
-                    type="button"
-                    onClick={() => signInDemo("bvo")}
-                    className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1.5 text-center text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
-                  >
-                    Block Vet Officer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => signInDemo("paravet")}
-                    className="rounded-md border border-border bg-card px-2 py-1.5 text-center text-xs font-semibold text-foreground hover:bg-accent transition-colors"
-                  >
-                    Para-Vet (LDO)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => signInDemo("farmer")}
-                    className="rounded-md border border-border bg-card px-2 py-1.5 text-center text-xs font-semibold text-foreground hover:bg-accent transition-colors"
-                  >
-                    Dairy Farmer
-                  </button>
-                </div>
               </div>
 
             </div>

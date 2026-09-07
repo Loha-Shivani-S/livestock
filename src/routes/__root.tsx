@@ -127,9 +127,23 @@ function RootComponent() {
     if (typeof window === "undefined") return;
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
-        console.warn("ServiceWorker registration failed:", err);
-      });
+      if (import.meta.env.PROD) {
+        navigator.serviceWorker.register("/sw.js").catch((err) => {
+          console.warn("ServiceWorker registration failed:", err);
+        });
+      } else {
+        // In local development, actively deregister any service workers and clear caches
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const reg of registrations) {
+            reg.unregister();
+          }
+        });
+        if ("caches" in window) {
+          caches.keys().then((keys) => {
+            keys.forEach((key) => caches.delete(key));
+          });
+        }
+      }
     }
 
     // Defer Google Translate until after React hydration is completely done

@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/useAuth";
@@ -57,8 +57,15 @@ function AuthPage() {
     }
   }, [mode, email, successMsg]);
 
-  if (loading) return null;
-  if (user) return <Navigate to="/command" />;
+  const navigate = Route.useNavigate();
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate({ to: "/command" });
+    }
+  }, [loading, user, navigate]);
+
+  if (loading || user) return null;
 
   // 1. SIGN UP (REGISTER)
   const handleSignUp = async (e: React.FormEvent) => {

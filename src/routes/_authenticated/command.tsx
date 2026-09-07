@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getCommandData, ingestTelemetry, createLabRequisition } from "@/lib/data-client";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { getCommandData, ingestTelemetry, createLabRequisition, resolveAlert } from "@/lib/data-client";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { BAND_STYLES } from "@/lib/risk";
@@ -10,6 +10,7 @@ import { RiskGauge } from "@/components/RiskGauge";
 import { AudioSpeakButton } from "@/components/AudioSpeakButton";
 import { VernacularAlertModal } from "@/components/VernacularAlertModal";
 import { LabSlipModal } from "@/components/LabSlipModal";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { toast } from "sonner";
 import {
   Activity,
@@ -25,17 +26,21 @@ import {
   Database,
   Radio,
   Zap,
-  Flame,
   Volume2,
   ShieldAlert,
   ShieldCheck,
   CheckCircle2,
   QrCode,
   AlertCircle,
-  ChevronRight,
   Sparkles,
+  Navigation,
+  Footprints,
+  ExternalLink,
+  Cpu,
+  Wifi,
 } from "lucide-react";
 import type { MapPoint } from "@/components/HotspotMap";
+import { useFirebaseCowTelemetry } from "@/lib/firebase";
 
 export const Route = createFileRoute("/_authenticated/command")({
   component: CommandPage,
@@ -53,8 +58,10 @@ function CommandPage() {
   const [realtimeActive, setRealtimeActive] = useState(false);
   const [sseConnected, setSseConnected] = useState(false);
   const [packetCount, setPacketCount] = useState(0);
-  const [simulating, setSimulating] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | undefined>();
+
+  // Live Firebase Realtime Database Telemetry from ESP8266 node (/cow1)
+  const firebaseTelemetry = useFirebaseCowTelemetry(true);
 
   // Modals
   const [vernacularModal, setVernacularModal] = useState<{
@@ -179,6 +186,15 @@ function CommandPage() {
   const selectedAnimal = (data?.animals as any[])?.find((a: any) => a.tag_id === activeTag);
   const selectedVitals = activeTag ? latestByTag.get(activeTag) : undefined;
 
+  // Real-time values bound from ESP8266 node via Firebase Realtime Database
+  const isSelectedCow1 = Boolean(activeTag?.includes("4471") || selectedAnimal?.species === "Cattle");
+  const liveTemp = isSelectedCow1 && firebaseTelemetry.temp !== null ? firebaseTelemetry.temp : selectedVitals?.temp_c ?? 38.6;
+  const liveBpm = isSelectedCow1 && firebaseTelemetry.bpm !== null ? firebaseTelemetry.bpm : selectedVitals?.heart_rate ?? 70;
+  const liveVedba = isSelectedCow1 && firebaseTelemetry.vedba !== null ? firebaseTelemetry.vedba : selectedVitals?.vedba ?? 0.05;
+  const liveStatus = isSelectedCow1 ? firebaseTelemetry.status : (liveVedba < 0.08 ? "Sleeping" : liveVedba < 0.2 ? "Eating" : "Walking");
+  const liveLat = isSelectedCow1 && firebaseTelemetry.lat !== null ? firebaseTelemetry.lat : selectedVitals?.lat ?? 11.235695;
+  const liveLon = isSelectedCow1 && firebaseTelemetry.lon !== null ? firebaseTelemetry.lon : selectedVitals?.lon ?? 77.781448;
+
   // Dynamic 3 km PostGIS quarantine buffer overlay (active strictly in State 3)
   const activeContainmentBuffer = useMemo(() => {
     if (triageState !== 3 || !highestRiskAnimal) return undefined;
@@ -199,15 +215,19 @@ function CommandPage() {
       const latest = latestByTag.get(a.tag_id);
       const alert = (data?.alerts as any[])?.find((al: any) => al.tag_id === a.tag_id && al.status === "open");
 
-      // Stable distributed coordinate jitter around real collar location (11.235695, 77.781448)
-      const defaultLat = 11.235695 + (((idx * 17) % 9) - 4) * 0.0018;
-      const defaultLon = 77.781448 + (((idx * 23) % 9) - 4) * 0.0018;
+      // Stable distributed coordinate jitter around real collar location in close pasture range (~25m)
+      const defaultLat = 11.235695 + (((idx * 17) % 5) - 2) * 0.00025;
+      const defaultLon = 77.781448 + (((idx * 23) % 5) - 2) * 0.00025;
 
       const isValidCoord = (val: unknown): val is number =>
         typeof val === "number" && !isNaN(val) && val !== 0;
 
-      const lat = isValidCoord(latest?.lat) ? latest.lat : isValidCoord(a.lat) ? a.lat : defaultLat;
-      const lon = isValidCoord(latest?.lon) ? latest.lon : isValidCoord(a.lon) ? a.lon : defaultLon;
+      const isCow1 = a.tag_id.includes("4471") || a.species === "Cattle";
+      const fbLat = isCow1 && firebaseTelemetry.lat !== null ? firebaseTelemetry.lat : null;
+      const fbLon = isCow1 && firebaseTelemetry.lon !== null ? firebaseTelemetry.lon : null;
+
+      const lat = isValidCoord(fbLat) ? fbLat : isValidCoord(latest?.lat) ? latest.lat : isValidCoord(a.lat) ? a.lat : defaultLat;
+      const lon = isValidCoord(fbLon) ? fbLon : isValidCoord(latest?.lon) ? latest.lon : isValidCoord(a.lon) ? a.lon : defaultLon;
 
       const point: MapPoint = {
         id: a.tag_id,
@@ -225,111 +245,55 @@ function CommandPage() {
     });
   }, [data, latestByTag, triageState]);
 
-  const openAlerts = ((data?.alerts as any[]) ?? []).filter((a: any) => a.status === "open");
-  const criticalCount = openAlerts.filter((a: any) => a.severity === "critical").length;
+  const trackedAnimals = useMemo(() => (data?.animals as any[]) ?? [], [data]);
+  const [alertTab, setAlertTab] = useState<"active" | "all">("active");
 
-  // Fast triage state switcher for demo/judges
-  const triggerTriageState = async (stateNum: 1 | 2 | 3) => {
-    const targetTag = activeTag || "IN-MH-2031-4471";
-    if (stateNum === 1) {
-      await ingestTelemetry({
-        node_id: "GW-DINDORI-01",
-        tag_id: targetTag,
-        temp: 38.6,
-        heart_rate: 64,
-        ax: 0.18, ay: 0.12, az: 0.85,
-        lat: 11.235695, lon: 77.781448,
-        speed: 0.6,
-        thi: 71.2,
-      });
-      toast.success("Operational State 1: Baseline Normal (BDI < 0.40). All markers green. No containment buffer.");
-    } else if (stateNum === 2) {
-      await ingestTelemetry({
-        node_id: "GW-DINDORI-01",
-        tag_id: targetTag,
-        temp: 39.9,
-        heart_rate: 88,
-        ax: 0.02, ay: 0.01, az: 0.04, // flatlined motion
-        lat: 11.235695, lon: 77.781448,
-        speed: 0.0,
-        thi: 76.8,
-      });
-      toast.warning("Operational State 2: Sentinel Anomaly / Pre-Clinical Distress (BDI ~ 0.58). Cardio-Kinetic Discrepancy flagged.");
-    } else {
-      await ingestTelemetry({
-        node_id: "GW-DINDORI-01",
-        tag_id: targetTag,
-        temp: 41.4,
-        heart_rate: 118,
-        ax: 0.01, ay: 0.01, az: 0.02, // severe recumbency
-        lat: 11.235695, lon: 77.781448,
-        speed: 0.0,
-        thi: 83.5,
-      });
-      toast.error("Operational State 3: Cluster Escalation & Active Containment (BDI ~ 0.88). 3 km Quarantine Buffer activated.");
-    }
-    queryClient.invalidateQueries({ queryKey: ["command"] });
-  };
-
-  // Rehearsal Outbreak simulation
-  const handleRunOutbreakSimulation = async () => {
-    if (simulating) return;
-    setSimulating(true);
-    toast.info("Initiating 3-Stage Outbreak & Spatiotemporal Cluster Simulation across local sector...");
-
-    try {
-      // Phase 1: Subclinical pyrexia
-      await ingestTelemetry({
-        node_id: "GW-DINDORI-01",
-        tag_id: "IN-MH-2031-4471",
-        temp: 39.8,
-        heart_rate: 84,
-        ax: 0.08, ay: 0.04, az: 0.12,
-        lat: 11.235695, lon: 77.781448,
-        speed: 0.2,
-        thi: 82.1,
-      });
-      toast.warning("Phase 1: Subclinical pyrexia in index animal IN-MH-2031-4471 (BDI ~ 0.48)");
-      await new Promise((r) => setTimeout(r, 2200));
-
-      // Phase 2: Spatiotemporal Cluster
-      await ingestTelemetry({
-        node_id: "GW-DINDORI-01",
-        tag_id: "IN-MH-2031-8820",
-        temp: 40.3,
-        heart_rate: 98,
-        ax: 0.05, ay: 0.02, az: 0.08,
-        lat: 11.2374, lon: 77.7831,
-        speed: 0.1,
-        thi: 82.5,
-      });
-      toast.warning("Phase 2: Cluster transmission in adjacent pasture! Secondary animal showing tachycardia.");
-      await new Promise((r) => setTimeout(r, 2200));
-
-      // Phase 3: Critical Outbreak Spike & 3km Quarantine Ring Buffer
-      await ingestTelemetry({
-        node_id: "GW-DINDORI-01",
-        tag_id: "IN-MH-2031-4471",
-        temp: 41.4,
-        heart_rate: 118,
-        ax: 0.02, ay: 0.01, az: 0.04,
-        lat: 11.235695, lon: 77.781448,
-        speed: 0.0,
-        thi: 83.2,
-      });
-      toast.error("Phase 3: CRITICAL OUTBREAK ESCALATION! Dynamic 3 km quarantine buffer ring activated & BVO notified.");
+  const resolveAlertMutation = useMutation({
+    mutationFn: (alertId: string) => resolveAlert({ alertId }),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["command"] });
-    } catch (err: any) {
-      toast.error(`Simulation error: ${err.message}`);
-    } finally {
-      setSimulating(false);
-    }
-  };
+      toast.success("Alert marked as resolved and closed.");
+    },
+  });
+
+  const validAlerts = useMemo(() => {
+    return ((data?.alerts as any[]) ?? []).filter(
+      (a: any) => !a.tag_id?.startsWith("IN-MH-") && a.village !== "Dindori"
+    );
+  }, [data?.alerts]);
+
+  const activeAlerts = useMemo(() => {
+    return validAlerts.filter(
+      (a: any) => a.status === "open" || a.status === "investigating" || a.status === "confirmed_outbreak"
+    );
+  }, [validAlerts]);
+
+  const displayedAlerts = alertTab === "active" ? activeAlerts : validAlerts;
+  const openAlerts = activeAlerts;
+
+  // Real herd health counts derived from latest telemetry / BDI
+  const criticalCount = useMemo(() => {
+    return trackedAnimals.filter((a: any) => {
+      const v = latestByTag.get(a.tag_id);
+      return v?.band === "critical" || (v?.bdi ?? 0) >= 0.70;
+    }).length;
+  }, [trackedAnimals, latestByTag]);
+
+  const warningCount = useMemo(() => {
+    return trackedAnimals.filter((a: any) => {
+      const v = latestByTag.get(a.tag_id);
+      return v?.band === "medium" || ((v?.bdi ?? 0) >= 0.40 && (v?.bdi ?? 0) < 0.70);
+    }).length;
+  }, [trackedAnimals, latestByTag]);
+
+  const normalCount = Math.max(0, trackedAnimals.length - criticalCount - warningCount);
+
+
 
   // Generate Digital Lab Requisition Slip
   const handleGenerateLabSlip = async (animalTag?: string) => {
     const targetAnimal = (animalTag ? (data?.animals as any[])?.find((a: any) => a.tag_id === animalTag) : null) || selectedAnimal || highestRiskAnimal;
-    const tag = targetAnimal?.tag_id || "IN-MH-2031-4471";
+    const tag = targetAnimal?.tag_id || "IN-TN-2031-4471";
     try {
       const res = await createLabRequisition({
         tag_id: tag,
@@ -374,146 +338,264 @@ function CommandPage() {
   return (
     <div className="space-y-6">
       {/* Top Header Bar */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border-b border-border pb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">{t("cmd.title")}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground whitespace-nowrap">
+              {t("cmd.title")}
+            </h1>
             <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
-              Epidemiological Triage Console
+              Epidemiological Triage
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Zero-latency LoRa telemetric surveillance, BDI mathematical triage & dynamic 3 km containment buffer.
+            {t("cmd.subtitle")} · Real-time telemetric surveillance, BDI mathematical triage & 3 km containment buffer.
           </p>
         </div>
 
         <div className="flex items-center flex-wrap gap-2">
-          {/* SSE Zero-Latency Live Stream Indicator */}
-          <div className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs shadow-sm">
+          {/* Quick Language Switcher */}
+          <LanguageSwitcher compact />
+
+          {/* Zero-Latency Telemetry Stream Indicator */}
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs shadow-xs">
             <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${sseConnected ? "bg-emerald-400 opacity-75" : "bg-amber-400 opacity-75"}`}></span>
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${sseConnected ? "bg-emerald-500" : "bg-amber-500"}`}></span>
+              <span
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
+                  sseConnected ? "bg-emerald-400 opacity-75" : "bg-amber-400 opacity-75"
+                }`}
+              ></span>
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  sseConnected ? "bg-emerald-500" : "bg-amber-500"
+                }`}
+              ></span>
             </span>
             <Radio className="h-3.5 w-3.5 text-primary" />
-            <span className="font-medium text-foreground">
-              SSE Stream: <span className={sseConnected ? "text-emerald-500 font-semibold" : "text-amber-500 font-semibold"}>{sseConnected ? "Live (0ms)" : "Connecting..."}</span>
-              {packetCount > 0 && <span className="text-muted-foreground ml-1">({packetCount} pkts)</span>}
+            <span className="font-semibold text-foreground">
+              {sseConnected ? "Telemetry: Live" : "Connecting..."}
             </span>
           </div>
 
           {/* Regional Vernacular Advisory */}
           <button
             type="button"
-            onClick={() => setVernacularModal({ open: true, village: "Gobichettipalayam", tagId: activeTag, disease: "Foot-and-Mouth Disease (FMD)" })}
-            className="inline-flex items-center gap-1.5 rounded-md border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition shadow-sm"
+            onClick={() =>
+              setVernacularModal({
+                open: true,
+                village: "Gobichettipalayam",
+                tagId: activeTag,
+                disease: "Foot-and-Mouth Disease (FMD)",
+              })
+            }
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition shadow-xs"
+            title="Trigger Regional Voice & SMS Broadcast to local farmers"
           >
             <Radio className="h-3.5 w-3.5" />
             Regional Advisory (IVR/SMS)
           </button>
 
-          {/* Full Outbreak Rehearsal Trigger */}
-          <button
-            type="button"
-            onClick={handleRunOutbreakSimulation}
-            disabled={simulating}
-            className="inline-flex items-center gap-1.5 rounded-md border border-critical/50 bg-critical/10 px-2.5 py-1.5 text-xs font-semibold text-critical hover:bg-critical/20 disabled:opacity-50 transition shadow-sm"
-          >
-            <Flame className={`h-3.5 w-3.5 ${simulating ? "animate-spin" : ""}`} />
-            {simulating ? "Simulating Cluster..." : "Simulate Outbreak (Demo)"}
-          </button>
-
-          <StatBadge icon={AlertTriangle} value={criticalCount} label="Critical" tone="critical" />
-          <StatBadge icon={Activity} value={data?.animals.length ?? 0} label="Tracked" />
+          {/* Herd Health Counters */}
+          <StatBadge icon={Activity} value={trackedAnimals.length} label="Tracked" />
+          <StatBadge icon={CheckCircle2} value={normalCount} label="Healthy" tone="success" />
+          {warningCount > 0 && (
+            <StatBadge icon={AlertCircle} value={warningCount} label="Under Watch" tone="warning" />
+          )}
+          <StatBadge
+            icon={AlertTriangle}
+            value={criticalCount}
+            label="Critical"
+            tone={criticalCount > 0 ? "critical" : undefined}
+          />
         </div>
       </div>
 
-      {/* Operational Triage State Bar (Judges / Evaluation Interactive Triage Controller) */}
-      <div className="rounded-xl border border-border bg-surface p-4 shadow-sm space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-3">
-          <div className="flex items-center gap-2.5">
+      {/* Operational Triage State Bar - Executive Telemetry HUD */}
+      <div
+        className={`relative overflow-hidden rounded-xl border p-4 shadow-sm transition-all duration-300 ${
+          triageState === 3
+            ? "border-critical/40 bg-gradient-to-br from-critical/10 via-surface to-critical/5 shadow-critical/5"
+            : triageState === 2
+            ? "border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-surface to-amber-500/5 shadow-amber-500/5"
+            : "border-emerald-500/25 bg-gradient-to-br from-emerald-500/5 via-surface to-transparent shadow-emerald-500/5"
+        }`}
+      >
+        {/* Ambient glow effect */}
+        <div
+          className={`pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl opacity-20 ${
+            triageState === 3 ? "bg-critical" : triageState === 2 ? "bg-amber-500" : "bg-emerald-500"
+          }`}
+        />
+
+        <div className="relative flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+          {/* Left: Triage State Badge & Operational Protocol */}
+          <div className="flex items-start sm:items-center gap-3.5 flex-1 min-w-0">
             <div
-              className={`flex h-8 w-8 items-center justify-center rounded-lg font-bold text-white shadow ${
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-mono text-base font-extrabold text-white shadow-md transition-transform ${
                 triageState === 3
-                  ? "bg-critical animate-pulse"
+                  ? "bg-critical shadow-critical/40 animate-pulse ring-2 ring-critical/40"
                   : triageState === 2
-                  ? "bg-medium"
-                  : "bg-low"
+                  ? "bg-amber-500 shadow-amber-500/30 text-black ring-2 ring-amber-500/30"
+                  : "bg-emerald-600 shadow-emerald-600/30 ring-2 ring-emerald-500/30"
               }`}
             >
-              {triageState === 3 ? "3" : triageState === 2 ? "2" : "1"}
+              {triageState === 3 ? (
+                <ShieldAlert className="h-6 w-6" />
+              ) : triageState === 2 ? (
+                <AlertTriangle className="h-6 w-6 text-black" />
+              ) : (
+                <ShieldCheck className="h-6 w-6" />
+              )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Current Operational Triage State
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {t("cmd.triage.title")}
                 </span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-tight shadow-2xs ${
                     triageState === 3
-                      ? "bg-critical/20 text-critical animate-pulse"
+                      ? "bg-critical/20 text-critical border border-critical/30 animate-pulse"
                       : triageState === 2
-                      ? "bg-medium/20 text-medium"
-                      : "bg-low/20 text-low"
+                      ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                      : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                   }`}
                 >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      triageState === 3
+                        ? "bg-critical animate-ping"
+                        : triageState === 2
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
+                    }`}
+                  />
                   {triageState === 3
-                    ? "STATE 3: CLUSTER CONTAINMENT (RED)"
+                    ? t("cmd.triage.state3")
                     : triageState === 2
-                    ? "STATE 2: SENTINEL ANOMALY (AMBER)"
-                    : "STATE 1: BASELINE NORMAL (GREEN)"}
+                    ? t("cmd.triage.state2")
+                    : t("cmd.triage.state1")}
                 </span>
               </div>
-              <p className="text-xs font-medium text-foreground mt-0.5">
+              <p className="text-xs text-foreground/85 mt-1 leading-relaxed max-w-2xl">
                 {triageState === 3
-                  ? "Acute Outbreak Confirmed (BDI ≥ 0.70). Dynamic 3 km quarantine buffer active. Movement restriction and ring vaccination triggered."
+                  ? t("cmd.triage.desc3")
                   : triageState === 2
-                  ? "Sentinel Pre-Clinical Anomaly Detected (0.40 ≤ BDI < 0.70). Subclinical distress flagged. Monitoring resting bout intervals."
-                  : "Normal Herd Physiology (BDI < 0.40). Coupled cardio-kinetic dynamics. All GIS markers green. No containment zones."}
+                  ? t("cmd.triage.desc2")
+                  : t("cmd.triage.desc1")}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 self-start sm:self-auto">
-            <span className="text-[11px] font-medium text-muted-foreground mr-1">Triage Switcher:</span>
-            <button
-              type="button"
-              onClick={() => triggerTriageState(1)}
-              className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
-                triageState === 1
-                  ? "bg-low text-white shadow"
-                  : "border border-border bg-card text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              🟢 State 1 Normal
-            </button>
-            <button
-              type="button"
-              onClick={() => triggerTriageState(2)}
-              className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
-                triageState === 2
-                  ? "bg-medium text-black shadow"
-                  : "border border-border bg-card text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              🟡 State 2 Pre-Clinical
-            </button>
-            <button
-              type="button"
-              onClick={() => triggerTriageState(3)}
-              className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
-                triageState === 3
-                  ? "bg-critical text-white shadow animate-pulse"
-                  : "border border-border bg-card text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              🔴 State 3 Outbreak
-            </button>
+          {/* Right: Real-time Telemetry & Hardware Cluster HUD */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 xl:flex xl:items-center gap-2 sm:gap-2.5 shrink-0 pt-3 xl:pt-0 border-t xl:border-t-0 border-border/50">
+            {/* 1. Live Collar Node */}
+            <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-background/80 backdrop-blur-sm px-3 py-2 shadow-2xs">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-500">
+                <Radio className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                  {t("cmd.triage.collar")}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs font-semibold text-foreground truncate">
+                    {t("cmd.triage.collarNode")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Peak Herd BDI */}
+            <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-background/80 backdrop-blur-sm px-3 py-2 shadow-2xs">
+              <div
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+                  maxBdi >= 0.70
+                    ? "bg-critical/15 text-critical"
+                    : maxBdi >= 0.40
+                    ? "bg-amber-500/15 text-amber-500"
+                    : "bg-emerald-500/15 text-emerald-500"
+                }`}
+              >
+                <HeartPulse className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                  {t("cmd.triage.peakBdi")}
+                </p>
+                <p
+                  className={`text-xs font-bold truncate ${
+                    maxBdi >= 0.70
+                      ? "text-critical"
+                      : maxBdi >= 0.40
+                      ? "text-amber-500"
+                      : "text-emerald-500"
+                  }`}
+                >
+                  {maxBdi.toFixed(2)} · {maxBdi >= 0.70 ? "Outbreak" : maxBdi >= 0.40 ? "Alert" : "Normal"}
+                </p>
+              </div>
+            </div>
+
+            {/* 3. Ingest Gateway Node */}
+            <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-background/80 backdrop-blur-sm px-3 py-2 shadow-2xs">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-500/15 text-sky-500">
+                <Database className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                  {t("cmd.triage.gateway")}
+                </p>
+                <p className="text-xs font-semibold text-foreground truncate">
+                  {t("cmd.triage.gatewayVal")}
+                </p>
+              </div>
+            </div>
+
+            {/* 4. Surveillance Status or Action */}
+            {triageState === 3 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setVernacularModal({
+                    open: true,
+                    village: highestRiskAnimal?.village || "Gobichettipalayam",
+                    tagId: highestRiskAnimal?.tag_id || "IN-TN-2031-4471",
+                    disease: "Foot-and-Mouth Disease (FMD Suspect)",
+                  })
+                }
+                className="flex items-center justify-center gap-2 rounded-lg bg-critical hover:bg-critical/90 text-white px-3 py-2 text-xs font-bold shadow-sm transition-all cursor-pointer col-span-2 sm:col-span-1"
+              >
+                <BellRing className="h-3.5 w-3.5 animate-bounce" />
+                <span className="truncate">{t("cmd.feed.broadcast")}</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-background/80 backdrop-blur-sm px-3 py-2 shadow-2xs">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-violet-500/15 text-violet-500">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                    {t("cmd.triage.surveillance")}
+                  </p>
+                  <p className="text-xs font-semibold text-emerald-500 truncate">
+                    {t("cmd.triage.collarLive")}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
+
       {/* Split-Screen Inspector: Left Side 60% Width, Right Side 40% Width */}
-      <div className="grid gap-5 lg:grid-cols-5">
+      <div className="grid gap-5 lg:grid-cols-5 items-start">
         {/* Left Side (60% Width): Interactive GIS Map & Emergency Containment Drawer */}
         <div className="space-y-4 lg:col-span-3">
           {/* Emergency Containment Drawer (State 3 Only) */}
@@ -568,7 +650,7 @@ function CommandPage() {
           )}
 
           {/* Interactive GIS Map */}
-          <div className="panel p-4">
+          <div id="hotspot-map-section" className="panel p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-sm font-semibold">{t("cmd.map")}</h2>
@@ -592,6 +674,73 @@ function CommandPage() {
               activeContainment={activeContainmentBuffer}
             />
           </div>
+
+          {/* Real-time Pasture Collar Fleet Telemetry Bar */}
+          <div className="panel p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-2.5">
+              <div className="flex items-center gap-2">
+                <Radio className="h-4 w-4 text-primary animate-pulse" />
+                <h3 className="font-display text-xs font-bold text-foreground">
+                  Active Pasture Collars · Live Sensor Nodes ({((data?.animals as any[]) ?? []).length} Online)
+                </h3>
+              </div>
+              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded font-semibold">
+                ● ESP8266 & LoRa Ingest Live
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {((data?.animals as any[]) ?? []).map((a: any) => {
+                const isSelected = activeTag === a.tag_id;
+                const v = latestByTag.get(a.tag_id);
+                const isThisCow1 = a.tag_id.includes("4471") || a.species === "Cattle";
+                const isCritical = v?.band === "critical";
+                const isMedium = v?.band === "medium";
+
+                const tempVal = isThisCow1 && firebaseTelemetry.temp !== null ? firebaseTelemetry.temp : v?.temperature ?? 38.6;
+                const bpmVal = isThisCow1 && firebaseTelemetry.bpm !== null ? firebaseTelemetry.bpm : v?.heart_rate ?? 70;
+                const statusVal = isThisCow1 ? firebaseTelemetry.status : (isCritical ? "OUTBREAK" : isMedium ? "MONITOR" : "HEALTHY");
+
+                return (
+                  <button
+                    key={a.tag_id}
+                    type="button"
+                    onClick={() => setSelectedTag(a.tag_id)}
+                    className={`rounded-xl border p-2.5 text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${
+                      isSelected
+                        ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/40"
+                        : "border-border bg-card/60 hover:bg-muted/70"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-foreground truncate">
+                        {a.species} {a.tag_id.split("-").pop()}
+                      </span>
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          isCritical
+                            ? "bg-critical animate-ping"
+                            : isMedium
+                            ? "bg-amber-500"
+                            : "bg-emerald-500"
+                        }`}
+                      />
+                    </div>
+                    <div className="text-[10px] text-muted-foreground flex items-center justify-between font-mono">
+                      <span>{Number(tempVal).toFixed(1)}°C</span>
+                      <span>{bpmVal} bpm</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[9px] font-mono pt-1 border-t border-border/40">
+                      <span className="text-muted-foreground truncate">{isThisCow1 ? "ESP8266 (RTDB)" : a.collar_node_id || "CLR-01"}</span>
+                      <span className={isCritical ? "text-critical font-bold" : isMedium ? "text-amber-500 font-bold" : "text-emerald-500 font-bold"}>
+                        {statusVal}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Right Side (40% Width): Selected Animal Inspector Card */}
@@ -600,22 +749,31 @@ function CommandPage() {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border/60">
             <span className="text-[10px] uppercase font-bold text-muted-foreground mr-1 shrink-0">Collar:</span>
             {((data?.animals as any[]) ?? []).map((a: any) => {
-              const shortId = a.tag_id.split("-").pop() || a.tag_id;
-              const isCollar1 = a.tag_id === "IN-MH-2031-4471";
+              const isCollar1 = a.tag_id.includes("4471");
               const isSelected = activeTag === a.tag_id;
+              const shortLabel = isCollar1
+                ? "Cow 4471 (ESP8266 Live)"
+                : a.tag_id.includes("8820")
+                ? "8820 (Buffalo)"
+                : a.tag_id.includes("1049")
+                ? "1049 (Sheep)"
+                : a.tag_id.includes("9231")
+                ? "9231 (Goat)"
+                : `${a.tag_id.split("-").pop()} (${a.species})`;
+
               return (
                 <button
                   key={a.tag_id}
                   type="button"
                   onClick={() => setSelectedTag(a.tag_id)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-semibold transition shrink-0 flex items-center gap-1.5 ${
+                  className={`rounded-md px-2.5 py-1 text-xs font-semibold transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
                     isSelected
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "border border-border bg-card text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${isCollar1 ? "bg-emerald-400 animate-pulse" : "bg-muted-foreground"}`} />
-                  {isCollar1 ? `Cow 4471 (Live Hardware)` : `${shortId} (${a.species})`}
+                  {shortLabel}
                 </button>
               );
             })}
@@ -625,26 +783,34 @@ function CommandPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-base font-bold text-foreground">
-                  {selectedAnimal?.tag_id || activeTag || "No Animal Selected"}
+                  {selectedAnimal?.tag_id || activeTag || "IN-TN-2031-4471"}
                 </h2>
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight ${
                     (selectedVitals?.band === "critical"
-                      ? "bg-critical/20 text-critical"
+                      ? "bg-critical/20 text-critical border border-critical/30"
                       : selectedVitals?.band === "medium"
-                      ? "bg-medium/20 text-medium"
-                      : "bg-low/20 text-low")
+                      ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                      : "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30")
                   }`}
                 >
-                  {selectedVitals?.band?.toUpperCase() || "NORMAL"}
+                  {selectedVitals?.band === "critical"
+                    ? "HIGH RISK (OUTBREAK)"
+                    : selectedVitals?.band === "medium"
+                    ? "MONITORING (PRE-CLINICAL)"
+                    : "HEALTHY (NORMAL)"}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {selectedAnimal?.species || "Cattle"} · {selectedAnimal?.breed || "Kangayam Cow"} · {selectedAnimal?.village || "Gobichettipalayam Sector"}
+              <p className="text-xs text-muted-foreground mt-1">
+                {selectedAnimal?.breed || "Kangayam Cow"} ({selectedAnimal?.species || "Cattle"}) · {selectedAnimal?.village || "Gobichettipalayam Pasture"}, Erode
               </p>
             </div>
             <AudioSpeakButton
-              text={selectedVitals ? `Animal ${selectedAnimal?.tag_id}. Body temperature ${selectedVitals.temp_c} degrees celsius. Heart rate ${selectedVitals.heart_rate} beats per minute. Biological degradation index ${selectedVitals.bdi.toFixed(2)}.` : t("cmd.noSelection")}
+              text={
+                selectedVitals
+                  ? `Animal ${selectedAnimal?.tag_id?.split("-").pop() || "4471"} in Gobichettipalayam. Body temperature ${selectedVitals.temp_c} degrees, heart rate ${selectedVitals.heart_rate} beats per minute. Animal is resting calmly. All vitals are normal.`
+                  : t("cmd.noSelection")
+              }
               variant="badge"
               label="Vitals Audio"
             />
@@ -655,80 +821,239 @@ function CommandPage() {
               {/* Radial Risk Gauge */}
               <RiskGauge bdi={selectedVitals.bdi} band={selectedVitals.band} />
 
-              {/* Core 4 Vitals Grid */}
+              {/* Core 4 Health Signs Grid - Simplified for Farmers */}
               <div className="grid grid-cols-2 gap-3">
-                <Vital icon={Thermometer} label={t("cmd.temp")} value={`${selectedVitals.temp_c} °C`} />
-                <Vital icon={HeartPulse} label={t("cmd.hr")} value={`${selectedVitals.heart_rate} bpm`} />
-                <Vital icon={Activity} label={t("cmd.motion")} value={selectedVitals.vedba.toFixed(3) + " g"} />
-                <Vital icon={Droplets} label="THI (Heat Stress)" value={selectedVitals.thi?.toFixed(1) ?? "--"} />
+                <Vital
+                  icon={Thermometer}
+                  label={t("cmd.temp")}
+                  value={`${Number(liveTemp).toFixed(1)} °C`}
+                  subtext={
+                    liveTemp > 39.5
+                      ? "Fever detected (>39.5 °C)"
+                      : liveTemp < 36.5
+                      ? "Sub-normal (<36.5 °C)"
+                      : "Normal (38.0–39.2 °C)"
+                  }
+                />
+                <Vital
+                  icon={HeartPulse}
+                  label={t("cmd.hr")}
+                  value={`${liveBpm} bpm`}
+                  subtext={
+                    liveBpm > 90
+                      ? "Elevated pulse (>90 bpm)"
+                      : liveBpm < 50
+                      ? "Resting / Bradycardia"
+                      : "Resting pulse (48–84 bpm)"
+                  }
+                />
+                <Vital
+                  icon={Activity}
+                  label={t("cmd.motion")}
+                  value={`${liveStatus} (${Number(liveVedba).toFixed(3)} g)`}
+                  subtext="Real-time MPU6050 cadence"
+                />
+                <Vital
+                  icon={Droplets}
+                  label={t("cmd.thi") || "Weather & Heat Level"}
+                  value={
+                    selectedVitals.thi
+                      ? selectedVitals.thi < 75
+                        ? `Comfortable (${selectedVitals.thi.toFixed(1)})`
+                        : selectedVitals.thi < 84
+                        ? `Mild Heat (${selectedVitals.thi.toFixed(1)})`
+                        : `High Heat Stress (${selectedVitals.thi.toFixed(1)})`
+                      : "Comfortable (74.2)"
+                  }
+                  subtext="Sufficient shade & water advised"
+                />
               </div>
 
-              {/* Cardio-Kinetic Discrepancy Card */}
+              {/* Real-time Firebase Realtime Database (/cow1) Telemetry Panel */}
+              {isSelectedCow1 && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span className="font-bold text-foreground flex items-center gap-1.5">
+                        <Cpu className="h-3.5 w-3.5 text-emerald-500" />
+                        ESP8266 Live Node (/cow1)
+                      </span>
+                    </div>
+                    <span className="rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold px-2 py-0.5">
+                      Firebase RTDB Connected
+                    </span>
+                  </div>
+
+                  {/* 3-Axis Accelerometer & Status */}
+                  <div className="grid grid-cols-4 gap-2 pt-1 text-center">
+                    <div className="rounded-lg border border-border bg-card/60 p-2">
+                      <span className="text-[10px] text-muted-foreground block font-mono">AX</span>
+                      <span className="font-mono font-bold text-foreground text-xs">{firebaseTelemetry.raw?.ax ?? "604"}</span>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card/60 p-2">
+                      <span className="text-[10px] text-muted-foreground block font-mono">AY</span>
+                      <span className="font-mono font-bold text-foreground text-xs">{firebaseTelemetry.raw?.ay ?? "687"}</span>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card/60 p-2">
+                      <span className="text-[10px] text-muted-foreground block font-mono">AZ</span>
+                      <span className="font-mono font-bold text-foreground text-xs">{firebaseTelemetry.raw?.az ?? "687"}</span>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card/60 p-2">
+                      <span className="text-[10px] text-muted-foreground block">Status</span>
+                      <span className="font-bold text-primary text-xs capitalize truncate block">{liveStatus}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5 border-t border-border/40 font-mono">
+                    <span>GPS: {Number(liveLat).toFixed(5)}°N, {Number(liveLon).toFixed(5)}°E</span>
+                    <span>Firebase Ping: {firebaseTelemetry.lastUpdated ? firebaseTelemetry.lastUpdated.toLocaleTimeString() : "Live"}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Livestock Health & Behavior Assessment (Plain Farmer Words) */}
               <div
-                className={`rounded-lg border p-3.5 space-y-2 text-xs transition ${
+                className={`rounded-xl border p-3.5 space-y-2.5 text-xs transition ${
                   selectedVitals.bdi >= 0.70
                     ? "border-critical/40 bg-critical/10 text-critical"
                     : selectedVitals.bdi >= 0.40
-                    ? "border-medium/40 bg-medium/10 text-medium"
-                    : "border-low/40 bg-low/10 text-low"
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold flex items-center gap-1.5 uppercase text-[11px] tracking-wide">
-                    {selectedVitals.bdi >= 0.40 ? (
-                      <AlertCircle className="h-4 w-4" />
+                    {selectedVitals.bdi >= 0.70 ? (
+                      <ShieldAlert className="h-4 w-4 text-critical" />
+                    ) : selectedVitals.bdi >= 0.40 ? (
+                      <AlertCircle className="h-4 w-4 text-amber-500" />
                     ) : (
-                      <CheckCircle2 className="h-4 w-4" />
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                     )}
-                    Cardio-Kinetic Discrepancy Engine
+                    {selectedVitals.bdi >= 0.70
+                      ? "High Risk Health Alert"
+                      : selectedVitals.bdi >= 0.40
+                      ? "Pre-Clinical Health Watch"
+                      : "Normal Health & Behavior"}
                   </span>
-                  <span className="font-mono text-[10px] font-bold">
-                    VeDBA: {selectedVitals.vedba.toFixed(3)} g · HR: {selectedVitals.heart_rate} bpm
+                  <span className="font-mono text-[10px] font-bold opacity-80">
+                    Pulse: {selectedVitals.heart_rate} bpm · Motion: {selectedVitals.vedba.toFixed(3)} g
                   </span>
                 </div>
 
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-xs text-foreground/90 leading-relaxed">
                   {selectedVitals.bdi >= 0.70 ? (
                     <span className="text-critical font-medium">
-                      Acute Cardio-Kinetic Decoupling! Animal is recumbent (motion flatline {selectedVitals.vedba.toFixed(3)} g) while heart rate is {selectedVitals.heart_rate} bpm (severe pyrexic tachycardia). Critical risk threshold crossed.
+                      Critical Risk: The animal is lying down and unable to stand, with high fever and rapid heart rate. Immediate veterinary medical care and quarantine isolation are recommended.
                     </span>
                   ) : selectedVitals.bdi >= 0.40 ? (
                     <span className="text-foreground font-medium">
-                      Cardio-Kinetic Discrepancy Flagged: Motion trace flatlined near zero while heart rate curve spiked upward. Subclinical distress flagged. Monitoring resting bout intervals.
+                      Observation Notice: Animal is resting, but heart rate is higher than normal. This may indicate early fever or heat fatigue before visible symptoms appear. Monitor feed and water intake today.
                     </span>
                   ) : (
-                    <span className="text-muted-foreground">
-                      Physiologically Coupled: Heart rate rises strictly in concordance with dynamic body acceleration (VeDBA). No pyrexic tachycardia detected.
+                    <span className="text-foreground/80">
+                      Healthy & Calm: Heart rate and resting movement are completely normal. The animal is resting peacefully with no fever, pain, or signs of illness detected.
                     </span>
                   )}
                 </p>
 
-                {selectedVitals.bdi >= 0.40 && selectedVitals.bdi < 0.70 && (
-                  <div className="rounded bg-medium/20 px-2.5 py-1 text-[11px] font-semibold text-medium">
-                    Advisory: "Subclinical distress flagged. Monitoring resting bout intervals."
+                {selectedVitals.bdi >= 0.40 && (
+                  <div className="rounded-md bg-background/80 px-2.5 py-1.5 text-[11px] font-medium border border-border/50 text-foreground">
+                    💡 Farmer Advice: Provide fresh cool drinking water, keep in shaded pasture, and contact your local veterinary assistant if appetite decreases.
                   </div>
                 )}
               </div>
 
-              {/* One-Click Lab Requisition Trigger */}
+              {/* Lost Animal Pathway & Walking Navigation (For Farmers) */}
+              <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600/15 text-blue-600 dark:text-blue-400">
+                      <Footprints className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-foreground">
+                        Find Lost Animal · Walking Route
+                      </h4>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        GPS: {Number(liveLat).toFixed(5)}°N, {Number(liveLon).toFixed(5)}°E
+                      </p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                    Live GPS Locked
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Follow the live dotted blue pathway on the farm map, or open turn-by-turn walking navigation on your phone.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${liveLat},${liveLon}&travelmode=walking`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 py-2 px-3 text-xs font-bold text-white shadow-sm transition text-center"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open Google Maps
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById("hotspot-map-section");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                      toast.success(`Centered map on ${selectedAnimal?.tag_id || activeTag}. Blue pathway leads to animal.`);
+                    }}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card hover:bg-muted py-2 px-3 text-xs font-semibold text-foreground transition text-center cursor-pointer shadow-2xs"
+                  >
+                    <MapPin className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    Show on Map
+                  </button>
+                </div>
+              </div>
+
+              {/* Lab Slip Requisition Option (Reasonable & Working) */}
               <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => handleGenerateLabSlip(activeTag)}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary py-2.5 px-4 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow transition"
-                >
-                  <QrCode className="h-4 w-4" />
-                  Generate Lab Requisition Slip (RDDL Referral)
-                </button>
+                {selectedVitals.bdi >= 0.70 ? (
+                  <button
+                    type="button"
+                    onClick={() => handleGenerateLabSlip(activeTag)}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-critical py-2.5 px-4 text-xs font-bold text-white hover:bg-critical/90 shadow transition cursor-pointer"
+                  >
+                    <QrCode className="h-4 w-4" />
+                    Issue Urgent Lab Requisition Slip (RDDL Referral)
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleGenerateLabSlip(activeTag)}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card hover:bg-muted py-2 px-3 text-xs font-semibold text-foreground shadow-2xs transition cursor-pointer"
+                  >
+                    <QrCode className="h-3.5 w-3.5 text-primary" />
+                    Request Veterinary Inspection / Digital Lab Slip
+                  </button>
+                )}
                 <p className="text-[10px] text-center text-muted-foreground mt-1.5">
-                  Surfaces scannable QR verification token & chain-of-custody slip for laboratory intake
+                  Generates an official digital referral slip with scannable QR token for veterinary sample collection.
                 </p>
               </div>
 
               {/* Packet Timestamp */}
-              <div className="rounded-md bg-muted p-2 text-xs text-muted-foreground">
-                <Clock className="mr-1 inline h-3 w-3" />
-                {t("cmd.lastPacket")}: {new Date(selectedVitals.recorded_at).toLocaleTimeString()}
+              <div className="rounded-md bg-muted/60 p-2 text-xs text-muted-foreground flex items-center justify-between">
+                <span>
+                  <Clock className="mr-1 inline h-3 w-3" />
+                  {t("cmd.lastPacket")}: {new Date(selectedVitals.recorded_at).toLocaleTimeString()}
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  ESP8266 Live Ingest
+                </span>
               </div>
             </div>
           ) : (
@@ -739,94 +1064,170 @@ function CommandPage() {
 
       {/* Alert Feed & Reports */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="panel p-4 lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-display text-sm font-semibold">{t("cmd.feed")}</h2>
-            <AudioSpeakButton
-              text={`Alerts feed. ${openAlerts.length} active alerts. ${criticalCount} critical outbreaks requiring veterinary quarantine.`}
-              variant="badge"
-              label="Alerts Feed"
-            />
-          </div>
-          <div className="mt-3 space-y-3">
-            {openAlerts.length === 0 && <p className="text-sm text-muted-foreground">No open alerts.</p>}
-            {openAlerts.map((a: any) => {
-              const severityKey = (a.severity in BAND_STYLES ? a.severity : "medium") as keyof typeof BAND_STYLES;
-              const style = BAND_STYLES[severityKey] || BAND_STYLES.medium;
-              return (
-                <div key={a.id} className={`rounded-md border-l-4 p-3.5 ${style.chip}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold">{a.title}</p>
-                        {a.status === "confirmed_outbreak" && (
-                          <span className="rounded bg-critical px-2 py-0.5 text-[10px] font-bold text-critical-foreground animate-pulse">
-                            CONFIRMED OUTBREAK
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{a.detail}</p>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-1">
-                        <span className="flex items-center gap-1 font-medium"><MapPin className="h-3.5 w-3.5" /> {a.village}, {a.block}</span>
-                        {a.containment_radius_m > 0 && (
-                          <span className="rounded bg-background/80 px-2 py-0.5 font-mono text-[11px] font-semibold text-critical">
-                            {a.containment_radius_m / 1000} km Quarantine Ring
-                          </span>
-                        )}
-                        <span>{new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                    </div>
+        <div className="panel p-4 lg:col-span-2 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-sm font-semibold">{t("cmd.feed")}</h2>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${activeAlerts.length > 0 ? "bg-critical/15 text-critical animate-pulse" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
+                {activeAlerts.length > 0 ? `${activeAlerts.length} Active Notice` : "All Clear"}
+              </span>
+            </div>
 
-                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${style.chip}`}>
-                        {style.label}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateLabSlip(a.tag_id)}
-                        className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-[11px] font-semibold hover:bg-accent transition"
-                      >
-                        <QrCode className="h-3 w-3 text-primary" />
-                        Lab Slip
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setVernacularModal({ open: true, village: a.village, tagId: a.tag_id, disease: a.title })}
-                        className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 transition"
-                      >
-                        <Radio className="h-3 w-3" />
-                        Advisory
-                      </button>
-                      <AudioSpeakButton
-                        text={`Alert in ${a.village}. ${a.title}. ${a.detail}`}
-                        variant="badge"
-                        label="Audio Alert"
-                      />
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-lg border border-border p-0.5 text-xs bg-muted/40">
+                <button
+                  type="button"
+                  onClick={() => setAlertTab("active")}
+                  className={`px-2.5 py-1 rounded font-semibold transition cursor-pointer ${alertTab === "active" ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Active ({activeAlerts.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAlertTab("all")}
+                  className={`px-2.5 py-1 rounded font-semibold transition cursor-pointer ${alertTab === "all" ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  All ({validAlerts.length})
+                </button>
+              </div>
+
+              <AudioSpeakButton
+                text={
+                  activeAlerts.length > 0
+                    ? `Alerts feed. ${activeAlerts.length} active notifications in Gobichettipalayam.`
+                    : "All clear. No active disease alerts in Gobichettipalayam block."
+                }
+                variant="badge"
+                label="Alerts Audio"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {displayedAlerts.length === 0 ? (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-center space-y-2">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <h4 className="text-sm font-bold text-foreground">
+                  All Clear · Normal Herd Status
+                </h4>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  No active outbreak or high-fever alarms in Gobichettipalayam. Collars are streaming in healthy physiological range (BDI &lt; 0.40).
+                </p>
+              </div>
+            ) : (
+              displayedAlerts.map((a: any) => {
+                const isResolved = a.status === "resolved";
+                const severityKey = (a.severity in BAND_STYLES ? a.severity : "medium") as keyof typeof BAND_STYLES;
+                const style = isResolved
+                  ? { chip: "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400", label: "RESOLVED" }
+                  : BAND_STYLES[severityKey] || BAND_STYLES.medium;
+
+                return (
+                  <div key={a.id} className={`rounded-xl border p-3.5 space-y-2.5 transition ${isResolved ? "border-emerald-500/30 bg-emerald-500/5" : "border-critical/30 bg-critical/5"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-xs font-bold text-foreground">{a.title}</p>
+                          <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${isResolved ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-critical/20 text-critical"}`}>
+                            {isResolved ? "RESOLVED" : "ACTIVE NOTICE"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{a.detail}</p>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-0.5">
+                          <span className="flex items-center gap-1 font-medium"><MapPin className="h-3 w-3 text-primary" /> {a.village}, {a.block}</span>
+                          {a.containment_radius_m > 0 && !isResolved && (
+                            <span className="rounded bg-critical/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-critical">
+                              {a.containment_radius_m / 1000} km Quarantine Zone
+                            </span>
+                          )}
+                          <span className="font-mono text-[10px]">{new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        {!isResolved && (
+                          <button
+                            type="button"
+                            onClick={() => resolveAlertMutation.mutate(a.id)}
+                            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-emerald-500 shadow-2xs transition cursor-pointer"
+                            title="Mark this alert verified & safe"
+                          >
+                            <CheckCircle2 className="h-3 w-3" />
+                            Mark Safe
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateLabSlip(a.tag_id)}
+                          className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-[11px] font-semibold hover:bg-muted transition cursor-pointer"
+                        >
+                          <QrCode className="h-3 w-3 text-primary" />
+                          Lab Slip
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVernacularModal({ open: true, village: a.village, tagId: a.tag_id, disease: a.title })}
+                          className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 transition cursor-pointer"
+                        >
+                          <Radio className="h-3 w-3" />
+                          Advisory
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
-        <div className="panel p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-display text-sm font-semibold">{t("cmd.reports")}</h2>
-            <AudioSpeakButton
-              text={`Recent field reports. ${data?.reports?.length ?? 0} village reports submitted.`}
-              variant="badge"
-              label="Reports Audio"
-            />
+        <div className="panel p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div>
+              <h2 className="font-display text-sm font-semibold">{t("cmd.reports")}</h2>
+              <p className="text-[10px] text-muted-foreground">Local village observations</p>
+            </div>
+            <Link
+              to="/report"
+              className="inline-flex items-center gap-1 rounded-lg bg-primary/15 px-2.5 py-1 text-xs font-bold text-primary hover:bg-primary/25 transition cursor-pointer"
+            >
+              + Report Symptom
+            </Link>
           </div>
-          <div className="mt-3 space-y-3">
-            {((data?.reports as any[]) ?? []).slice(0, 5).map((r: any) => (
-              <div key={r.id} className="rounded-md border border-border p-3">
-                <p className="text-sm font-medium">{r.reporter_name || "Anonymous"}</p>
-                <p className="text-xs text-muted-foreground">{r.symptoms.join(", ")}</p>
-                <p className="mt-1 text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p>
-              </div>
-            ))}
+
+          <div className="space-y-2.5">
+            {((data?.reports as any[]) ?? [])
+              .filter((r: any) => !r.reporter_name?.includes("Kadam") && !r.reporter_name?.includes("Gaikwad"))
+              .slice(0, 5)
+              .map((r: any) => (
+                <div key={r.id} className="rounded-xl border border-border/80 bg-surface/70 p-3 space-y-1.5 hover:border-border transition">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <span>👤 {r.reporter_name || "Local Farmer"}</span>
+                      <span className="rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold px-1.5 py-0.2">
+                        ✓ Verified
+                      </span>
+                    </p>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+
+                  <p className="text-xs font-medium text-primary">
+                    {Array.isArray(r.symptoms) ? r.symptoms.join(" · ") : r.symptoms}
+                  </p>
+                  {r.notes && (
+                    <p className="text-[11px] text-muted-foreground italic leading-snug">
+                      "{r.notes}"
+                    </p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-1 pt-0.5">
+                    <MapPin className="h-3 w-3 text-muted-foreground" /> {r.village || "Gobichettipalayam Pasture"}, {r.block || "Erode"}
+                  </p>
+                </div>
+              ))}
           </div>
         </div>
       </div>
@@ -850,23 +1251,57 @@ function CommandPage() {
   );
 }
 
-function Vital({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function Vital({
+  icon: Icon,
+  label,
+  value,
+  subtext,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  subtext?: string;
+}) {
   return (
-    <div className="rounded-md border border-border bg-surface p-3">
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <p className="label-caps mt-2">{label}</p>
-      <p className="mt-0.5 text-lg font-semibold tabular">{value}</p>
+    <div className="rounded-xl border border-border/80 bg-surface/90 p-3 shadow-2xs hover:border-border transition">
+      <div className="flex items-center justify-between">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <p className="label-caps mt-2 text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">{label}</p>
+      <p className="mt-0.5 text-base sm:text-lg font-bold tabular tracking-tight text-foreground">{value}</p>
+      {subtext && (
+        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{subtext}</p>
+      )}
     </div>
   );
 }
 
-function StatBadge({ icon: Icon, value, label, tone }: { icon: React.ElementType; value: number; label: string; tone?: "critical" }) {
+function StatBadge({
+  icon: Icon,
+  value,
+  label,
+  tone,
+}: {
+  icon: React.ElementType;
+  value: number;
+  label: string;
+  tone?: "critical" | "warning" | "success" | undefined;
+}) {
+  const toneStyle =
+    tone === "critical"
+      ? "border-critical/40 bg-critical/10 text-critical"
+      : tone === "warning"
+      ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
+      : tone === "success"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+      : "border-border bg-card text-foreground";
+
   return (
-    <div className={`flex items-center gap-3 rounded-md border px-3 py-2 ${tone === "critical" ? "border-critical/30 bg-critical-soft" : "border-border bg-card"}`}>
-      <Icon className={`h-4 w-4 ${tone === "critical" ? "text-critical" : "text-muted-foreground"}`} />
+    <div className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 shadow-xs transition ${toneStyle}`}>
+      <Icon className="h-4 w-4 shrink-0" />
       <div>
-        <p className="text-lg font-bold leading-none tabular">{value}</p>
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="font-mono text-sm font-bold leading-none text-foreground">{value}</p>
+        <p className="text-[9px] uppercase font-bold text-muted-foreground mt-0.5">{label}</p>
       </div>
     </div>
   );

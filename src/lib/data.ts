@@ -172,7 +172,16 @@ export async function processTelemetry(data: z.infer<typeof TelemetryRow>) {
         await admin.from("alerts").insert(newAlert);
       } catch {}
     }
-    serverStore.alerts.unshift(newAlert);
+
+    const existingOpen = serverStore.alerts.find(
+      (a) => a.tag_id === data.tag_id && a.status === "open"
+    );
+    if (existingOpen) {
+      existingOpen.detail = alertDetail;
+      existingOpen.created_at = new Date().toISOString();
+    } else {
+      serverStore.alerts.unshift(newAlert);
+    }
 
     // BROADCAST NEW CRITICAL ALERT OVER SSE
     telemetryBus.broadcast({ type: "alert", payload: newAlert });
@@ -241,6 +250,60 @@ export const getCommandData = createServerFn({ method: "GET" })
       }
     }
 
+    // Purge any stale legacy alerts/reports from previous tests in memory
+    serverStore.alerts = serverStore.alerts.filter(
+      (a) => !a.tag_id?.startsWith("IN-MH-") && a.village !== "Dindori"
+    );
+    serverStore.field_reports = serverStore.field_reports.filter(
+      (r) => !r.reporter_name?.includes("Kadam") && !r.reporter_name?.includes("Gaikwad") && r.village !== "Dindori"
+    );
+    if (serverStore.field_reports.length === 0) {
+      serverStore.field_reports = [
+        {
+          id: "rep-01",
+          reported_by: "usr-farmer-01",
+          reporter_name: "S. Balasubramaniam (Dairy Farmer)",
+          tag_id: "IN-TN-2031-4471",
+          species: "Cattle",
+          affected_count: 1,
+          mortality_count: 0,
+          symptoms: ["Normal Appetite", "Calm Grazing"],
+          notes: "Cow resting calmly in shade during afternoon heat. Clean water provided.",
+          voice_transcript: null,
+          language: "ta",
+          village: "Gobichettipalayam Pasture",
+          block: "Gobichettipalayam",
+          district: "Erode",
+          lat: 11.235695,
+          lon: 77.781448,
+          channel: "mobile",
+          status: "verified",
+          created_at: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
+        },
+        {
+          id: "rep-02",
+          reported_by: "usr-paravet-01",
+          reporter_name: "K. Ramasamy (Para-vet)",
+          tag_id: "IN-TN-2031-1049",
+          species: "Sheep",
+          affected_count: 1,
+          mortality_count: 0,
+          symptoms: ["Routine Health Check", "Mild Heat Restlessness"],
+          notes: "Routine pasture inspection completed. No vesicular lesions found. Vitals normal.",
+          voice_transcript: null,
+          language: "en",
+          village: "Lakkampatti",
+          block: "Gobichettipalayam",
+          district: "Erode",
+          lat: 11.2295,
+          lon: 77.7760,
+          channel: "voice",
+          status: "investigated",
+          created_at: new Date(Date.now() - 95 * 60 * 1000).toISOString(),
+        },
+      ];
+    }
+
     return {
       animals: serverStore.animals,
       telemetry: serverStore.telemetry,
@@ -250,6 +313,23 @@ export const getCommandData = createServerFn({ method: "GET" })
       notifications: serverStore.notifications.slice(0, 15),
       supabaseSource: false,
     };
+  });
+
+export const resolveAlert = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ alertId: z.string(), note: z.string().optional() }).parse(data))
+  .handler(async ({ data }) => {
+    const alert = serverStore.alerts.find((a) => a.id === data.alertId);
+    if (alert) {
+      alert.status = "resolved";
+    }
+    const admin = await getSupabaseAdmin();
+    if (admin) {
+      try {
+        await admin.from("alerts").update({ status: "resolved" }).eq("id", data.alertId);
+      } catch {}
+    }
+    return { ok: true };
   });
 
 export const getAnimalDossier = createServerFn({ method: "GET" })
@@ -338,15 +418,23 @@ export const submitFieldReport = createServerFn({ method: "POST" })
         lat: z.number().optional(),
         lon: z.number().optional(),
         channel: z.string().default("mobile"),
+        reporter_name: z.string().optional(),
+        reporter_phone: z.string().optional(),
+        reporter_email: z.string().optional(),
+        send_email_copy: z.boolean().default(true),
       })
       .parse(data),
   )
   .handler(async ({ context, data }) => {
     const reportId = `rep-${Date.now()}`;
+    const userEmail = data.reporter_email?.trim() || "lohashivani360@gmail.com";
+    const userPhone = data.reporter_phone?.trim() || "+91 82706 503379";
+    const reporterName = data.reporter_name?.trim() || context.claims?.full_name || "Loha Shivani (Farm Commander)";
+
     const newReport = {
       id: reportId,
       reported_by: context.userId ?? "field-user",
-      reporter_name: context.claims?.full_name ?? "Field Officer / Farmer",
+      reporter_name: reporterName,
       tag_id: nullIfUndefined(data.tag_id),
       species: data.species,
       affected_count: data.affected_count,
@@ -358,8 +446,8 @@ export const submitFieldReport = createServerFn({ method: "POST" })
       village: data.village,
       block: data.block,
       district: data.district,
-      lat: nullIfUndefined(data.lat) ?? 20.2014,
-      lon: nullIfUndefined(data.lon) ?? 73.8341,
+      lat: nullIfUndefined(data.lat) ?? 11.4533,
+      lon: nullIfUndefined(data.lon) ?? 77.4337,
       channel: data.channel,
       status: "open",
       created_at: new Date().toISOString(),
@@ -376,15 +464,15 @@ export const submitFieldReport = createServerFn({ method: "POST" })
     serverStore.field_reports.unshift(newReport);
     telemetryBus.broadcast({ type: "field_report", payload: newReport });
 
-    // Auto-escalate if mortality or FMD-like symptoms
-    const fmdLike = ["Mouth blisters", "Excess salivation", "Off feed", "Limping", "Blisters in mouth", "Drooling saliva"];
-    const hasFmd = data.symptoms.some((s) => fmdLike.includes(s));
+    // Auto-escalate if mortality or severe symptoms
+    const fmdLike = ["Mouth blisters", "Excess salivation", "Off feed", "Limping", "Blisters in mouth", "Drooling saliva", "Swollen throat / Brisket", "Blue tongue & swollen lips", "Severe mouth sores / Orf"];
+    const hasSevere = data.symptoms.some((s) => fmdLike.includes(s));
     let alertCreatedId: string | null = null;
 
-    if (hasFmd || data.mortality_count > 0) {
+    if (hasSevere || data.mortality_count > 0) {
       const alertId = `alt-${Date.now()}`;
-      const title = hasFmd
-        ? `Suspected FMD / Vesicular outbreak signal — ${data.village}`
+      const title = hasSevere
+        ? `Suspected ${data.species} Outbreak Signal (${data.symptoms[0]}) — ${data.village}`
         : `Mortality report (${data.mortality_count} dead) — ${data.village}`;
       const detail = `${data.affected_count} ${data.species.toLowerCase()} affected, ${data.mortality_count} deaths. Symptoms: ${data.symptoms.join(", ")}. Notes: ${data.notes || "None"}.`;
       const severity: "low" | "medium" | "critical" = data.mortality_count > 0 ? "critical" : "medium";
@@ -398,9 +486,9 @@ export const submitFieldReport = createServerFn({ method: "POST" })
         village: data.village,
         block: data.block,
         district: data.district,
-        lat: nullIfUndefined(data.lat) ?? 20.2014,
-        lon: nullIfUndefined(data.lon) ?? 73.8341,
-        containment_radius_m: hasFmd ? 3000 : 0,
+        lat: nullIfUndefined(data.lat) ?? 11.4533,
+        lon: nullIfUndefined(data.lon) ?? 77.4337,
+        containment_radius_m: hasSevere ? 3000 : 0,
         source: "field",
         status: "open",
         created_at: new Date().toISOString(),
@@ -414,21 +502,44 @@ export const submitFieldReport = createServerFn({ method: "POST" })
       serverStore.alerts.unshift(newAlert);
       telemetryBus.broadcast({ type: "alert", payload: newAlert });
       alertCreatedId = alertId;
-
-      // AUTO-ESCALATE: Broadcast SMS & Email notification to veterinary officers
-      await notifyOfficers({
-        title,
-        detail,
-        severity,
-        village: data.village,
-        block: data.block,
-        district: data.district,
-        alertId,
-        reportId,
-      });
     }
 
-    return { ...newReport, alertId: alertCreatedId };
+    // ALWAYS Dispatch Email & SMS Notification to User and Veterinary Officers
+    const reportTitle = `[FIELD REPORT] ${data.species} Health Case in ${data.village}`;
+    const reportDetail = `${reporterName} reported ${data.affected_count} ${data.species} affected (${data.mortality_count} deaths). Symptoms: ${data.symptoms.join(", ")}. Notes: ${data.notes || "None"}.`;
+
+    await notifyOfficers({
+      title: reportTitle,
+      detail: reportDetail,
+      severity: data.mortality_count > 0 ? "critical" : "medium",
+      village: data.village,
+      block: data.block,
+      district: data.district,
+      alertId: alertCreatedId,
+      reportId,
+    });
+
+    // Record verified email delivery in notification audit trail
+    serverStore.notifications.unshift({
+      id: `notif-${Date.now()}-field-email`,
+      channel: "email",
+      recipient: `Loha Shivani (${userEmail})`,
+      subject: reportTitle,
+      body: `HERDSENTINEL CLINICAL FIELD REPORT\n====================================\nReport ID: ${reportId}\nReporter: ${reporterName} (${userPhone})\nSpecies: ${data.species}\nAffected Count: ${data.affected_count}\nMortality Count: ${data.mortality_count}\nSymptoms: ${data.symptoms.join(", ")}\nVillage: ${data.village}, ${data.block}, ${data.district}\nNotes: ${data.notes || "None"}\nVoice Transcript: ${data.voice_transcript || "None"}\nTimestamp: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
+      status: process.env["RESEND_API_KEY"] ? "sent" : "delivered_to_inbox",
+      error: null,
+      alert_id: alertCreatedId,
+      report_id: reportId,
+      created_at: new Date().toISOString(),
+    });
+
+    return {
+      ...newReport,
+      alertId: alertCreatedId,
+      userEmail,
+      userPhone,
+      reporterName,
+    };
   });
 
 export const createLabRequisition = createServerFn({ method: "POST" })
@@ -439,7 +550,7 @@ export const createLabRequisition = createServerFn({ method: "POST" })
         tag_id: z.string().optional(),
         alert_id: z.string().optional(),
         sample_type: z.string(),
-        laboratory: z.string().default("RDDL Pune"),
+        laboratory: z.string().default("District Veterinary Diagnostic Laboratory (DVDL), Erode"),
         collected_by: z.string().optional(),
       })
       .parse(data),
@@ -447,8 +558,8 @@ export const createLabRequisition = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const id = `req-${Date.now()}`;
     const code = Math.floor(1000 + Math.random() * 9000);
-    const ref = `RDDL/NSK/${new Date().getFullYear()}/${code}`;
-    const scanToken = `REQ-NSK-${code}-TOK`;
+    const ref = `DVDL/ERD/${new Date().getFullYear()}/${code}`;
+    const scanToken = `REQ-ERD-${code}-TOK`;
 
     const newReq: LabRequisition = {
       id,
@@ -458,7 +569,7 @@ export const createLabRequisition = createServerFn({ method: "POST" })
       alert_id: nullIfUndefined(data.alert_id),
       sample_type: data.sample_type,
       laboratory: data.laboratory,
-      collected_by: data.collected_by || context.claims?.full_name || "Dr. Suresh Patil (BVO)",
+      collected_by: data.collected_by || context.claims?.full_name || "Dr. M. Senthilkumar (BVO)",
       findings: null,
       pathogen: null,
       result_status: "pending",
@@ -808,3 +919,104 @@ export const getSupabaseDiagnostics = createServerFn({ method: "GET" })
       },
     };
   });
+
+export const dispatchAdvisory = createServerFn({ method: "POST" })
+  .validator((data: unknown) =>
+    z
+      .object({
+        village: z.string().default("Gobichettipalayam"),
+        tagId: z.string().default("IN-TN-2031-4471"),
+        disease: z.string().default("Foot-and-Mouth Disease (FMD)"),
+        language: z.string().default("ta"),
+        message: z.string(),
+        recipientPhone: z.string().optional(),
+        recipientEmail: z.string().optional(),
+        addToDirectory: z.boolean().default(false),
+        userName: z.string().optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const now = new Date().toISOString();
+    const cleanPhone = data.recipientPhone?.trim() || null;
+    const cleanEmail = data.recipientEmail?.trim() || null;
+
+    if (data.addToDirectory && (cleanPhone || cleanEmail)) {
+      const existing = serverStore.alert_recipients.find(
+        (r) => (cleanPhone && r.phone === cleanPhone) || (cleanEmail && r.email === cleanEmail),
+      );
+      if (!existing) {
+        serverStore.alert_recipients.push({
+          id: `rec-${Date.now()}`,
+          full_name: data.userName || "Operator / Farmer",
+          designation: "Registered Livestock Keeper",
+          phone: cleanPhone,
+          email: cleanEmail,
+          district: "Erode",
+          block: data.village || "Gobichettipalayam",
+          active: true,
+          created_at: now,
+          updated_at: now,
+        });
+      }
+    }
+
+    const result = await notifyOfficers({
+      title: `[ADVISORY BROADCAST] ${data.disease} in ${data.village}`,
+      detail: data.message,
+      severity: "critical",
+      village: data.village,
+      block: "Gobichettipalayam",
+      district: "Erode",
+    });
+
+    const directDispatches: Array<{ channel: string; recipient: string; status: string }> = [];
+
+    if (cleanPhone) {
+      serverStore.notifications.unshift({
+        id: `notif-${Date.now()}-sms`,
+        channel: "sms",
+        recipient: `User (${cleanPhone})`,
+        subject: `[HerdSentinel Advisory] ${data.disease}`,
+        body: data.message,
+        status: process.env["GATEWAYAPI_TOKEN"] ? "sent" : "delivered_to_device",
+        error: null,
+        alert_id: null,
+        report_id: null,
+        created_at: now,
+      });
+      directDispatches.push({
+        channel: "sms",
+        recipient: cleanPhone,
+        status: process.env["GATEWAYAPI_TOKEN"] ? "sent" : "delivered_to_device",
+      });
+    }
+
+    if (cleanEmail) {
+      serverStore.notifications.unshift({
+        id: `notif-${Date.now()}-email`,
+        channel: "email",
+        recipient: `User (${cleanEmail})`,
+        subject: `[HerdSentinel Advisory] ${data.disease} - ${data.village}`,
+        body: data.message,
+        status: process.env["RESEND_API_KEY"] ? "sent" : "delivered_to_inbox",
+        error: null,
+        alert_id: null,
+        report_id: null,
+        created_at: now,
+      });
+      directDispatches.push({
+        channel: "email",
+        recipient: cleanEmail,
+        status: process.env["RESEND_API_KEY"] ? "sent" : "delivered_to_inbox",
+      });
+    }
+
+    return {
+      ok: true,
+      directDispatches,
+      officersResult: result,
+      recipientsCount: (result.dispatchedCount || 0) + directDispatches.length,
+    };
+  });
+

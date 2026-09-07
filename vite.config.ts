@@ -13,6 +13,9 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    resolve: {
+      dedupe: ["react", "react-dom"],
+    },
     plugins: [
       {
         name: "tts-proxy",

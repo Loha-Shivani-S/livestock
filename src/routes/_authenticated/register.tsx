@@ -65,7 +65,7 @@ function RegisterPage() {
   const [newOwner, setNewOwner] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newVillage, setNewVillage] = useState("Gobichettipalayam");
-  const [newCollar, setNewCollar] = useState("GW-DINDORI-01");
+  const [newCollar, setNewCollar] = useState("GW-GOBICHETTI-01");
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,7 +245,7 @@ function RegisterPage() {
       />
 
       {isRegisterOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in">
           <div className="panel max-w-lg w-full p-6 shadow-xl border border-border">
             <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
               <div className="flex items-center gap-2">
@@ -266,7 +266,7 @@ function RegisterPage() {
                 <label className="label-caps block mb-1 text-xs">Bharat Pashudhan RFID Tag ID *</label>
                 <input
                   required
-                  placeholder="e.g. IN-MH-15-C9925"
+                  placeholder="e.g. IN-TN-15-C9925"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm uppercase font-mono focus:ring-2 focus:ring-ring"
@@ -304,7 +304,7 @@ function RegisterPage() {
                 <div>
                   <label className="label-caps block mb-1 text-xs">Breed</label>
                   <input
-                    placeholder="e.g. Gir Cow, Murrah"
+                    placeholder="e.g. Kangayam Cow, Murrah"
                     value={newBreed}
                     onChange={(e) => setNewBreed(e.target.value)}
                     className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
@@ -314,7 +314,7 @@ function RegisterPage() {
                 <div>
                   <label className="label-caps block mb-1 text-xs">Collar Node Gateway</label>
                   <input
-                    placeholder="GW-DINDORI-01"
+                    placeholder="GW-GOBICHETTI-01"
                     value={newCollar}
                     onChange={(e) => setNewCollar(e.target.value)}
                     className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:ring-2 focus:ring-ring"

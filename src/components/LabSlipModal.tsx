@@ -43,7 +43,7 @@ export function LabSlipModal({ isOpen, onClose, requisition }: LabSlipModalProps
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="relative w-full max-w-xl rounded-xl border border-border bg-card p-6 shadow-2xl">
         <button
           onClick={onClose}
@@ -65,7 +65,7 @@ export function LabSlipModal({ isOpen, onClose, requisition }: LabSlipModalProps
             Digital Lab Requisition Slip
           </h2>
           <p className="text-xs text-muted-foreground">
-            Regional Disease Diagnostic Laboratory (RDDL) · Government of Maharashtra
+            District Veterinary Diagnostic Laboratory (DVDL), Erode · Government of Tamil Nadu
           </p>
         </div>
 

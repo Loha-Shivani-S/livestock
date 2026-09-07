@@ -1,34 +1,34 @@
-// HerdSentinel Service Worker for Offline Caching
-const CACHE_NAME = "herdsentinel-v1";
-const STATIC_ASSETS = [
-  "/",
-  "/report",
-  "/manifest.json",
-  "/favicon.ico",
-];
+// HerdSentinel Service Worker
+const CACHE_NAME = "herdsentinel-v2";
+const isDev = self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
-  );
+  // Immediately take over to purge stale development caches
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
+      // Purge all old caches (including herdsentinel-v1)
+      return Promise.all(keys.map((key) => caches.delete(key)));
+    }).then(() => {
+      // In local development, unregister service worker completely so Vite HMR and dynamic scripts never get intercepted
+      if (isDev) {
+        return self.registration.unregister();
+      }
     })
   );
   self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
-  // Never intercept public API requests, dev assets, or non-GET requests with cache
+  // Never intercept requests in development or on localhost
+  if (isDev) {
+    return;
+  }
+
+  // Never intercept API, dev assets, Vite modules, or non-GET requests
   if (
     event.request.url.includes("/api/") ||
     event.request.url.includes("@vite") ||
@@ -39,28 +39,25 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Network-first strategy for pages to prevent stale code errors
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request)
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type !== "basic") {
-            return response;
-          }
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200 && response.type === "basic") {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
           });
-          return response;
-        })
-        .catch(() => {
-          // If offline and request is for page navigation, fallback to cached /report or /
+        }
+        return response;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
           if (event.request.mode === "navigate") {
             return caches.match("/report") || caches.match("/");
           }
         });
-    })
+      })
   );
 });

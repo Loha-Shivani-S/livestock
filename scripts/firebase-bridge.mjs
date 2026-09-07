@@ -79,15 +79,15 @@ async function pollFirebase() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          node_id: "GW-DINDORI-01",
-          tag_id: "IN-MH-2031-4471", // Primary collared cow
+          node_id: "GW-GOBICHETTI-01",
+          tag_id: "IN-TN-2031-4471", // Primary collared cow (Gobichettipalayam, Erode)
           temp: isNaN(temp) ? 38.6 : temp,
           heart_rate: isNaN(bpm) ? 72 : bpm,
           ax,
           ay,
           az,
-          lat: isNaN(lat) || lat === 0 ? 20.2014 : lat,
-          lon: isNaN(lon) || lon === 0 ? 73.8341 : lon,
+          lat: isNaN(lat) || lat === 0 ? 11.235695 : lat,
+          lon: isNaN(lon) || lon === 0 ? 77.781448 : lon,
           speed: status === "Walking" ? 1.2 : 0.0,
         }),
       });

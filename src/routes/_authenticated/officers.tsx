@@ -287,7 +287,7 @@ function OfficersPage() {
 
       {/* Add / Edit Officer Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-2xl">
             <h2 className="font-display text-lg font-bold">
               {editingId ? "Edit Officer Contact" : "Register Alert Recipient"}

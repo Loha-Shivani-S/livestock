@@ -16,6 +16,9 @@ import {
   Info,
   CheckCircle2,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Maximize2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -111,27 +114,56 @@ export function HotspotMap({
   selectedId,
   onSelect,
   activeContainment,
+  className,
 }: {
   points: MapPoint[];
   selectedId?: string | undefined;
   onSelect?: (id: string) => void;
   activeContainment?: ContainmentBuffer | undefined;
+  className?: string | undefined;
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const tileLayerRef = useRef<any>(null);
   const markersLayerGroupRef = useRef<any>(null);
+  const navigationLayerGroupRef = useRef<any>(null);
   const bufferLayerRef = useRef<any>(null);
-  const navigationLineRef = useRef<any>(null);
   const farmerMarkerRef = useRef<any>(null);
+  const hasInitialFitRef = useRef(false);
 
   const [activeTileKey, setActiveTileKey] = useState<TileLayerKey>("google_hybrid");
-  const [farmerLocation, setFarmerLocation] = useState<{ lat: number; lon: number; accuracy?: number } | null>(null);
+  // Default farmer starting position at field gate/homestead near pasture
+  const [farmerLocation, setFarmerLocation] = useState<{ lat: number; lon: number; accuracy?: number; isEstimate?: boolean } | null>({
+    lat: 11.2348,
+    lon: 77.7802,
+    accuracy: 25,
+    isEstimate: true,
+  });
   const [locatingFarmer, setLocatingFarmer] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [isHudCollapsed, setIsHudCollapsed] = useState(false);
 
-  // Validate points or apply stable distributed fallback around real hardware center (11.235695, 77.781448)
+  // Optional custom pasture center if farmer wants the herd right in their own local field/yard
+  const [pastureCenter, setPastureCenter] = useState<{ lat: number; lon: number; label: string } | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("herd_custom_pasture_center");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return null;
+  });
+
+  // Validate points or apply distributed positions in tight grazing proximity (~25-35m)
   const validPoints = useMemo(() => {
+    if (pastureCenter) {
+      return points.map((p, idx) => {
+        const jitterLat = pastureCenter.lat + (((idx * 17) % 5) - 2) * 0.00025;
+        const jitterLon = pastureCenter.lon + (((idx * 23) % 5) - 2) * 0.00025;
+        return { ...p, lat: jitterLat, lon: jitterLon };
+      });
+    }
+
     return points.map((p, idx) => {
       const hasValid =
         typeof p.lat === "number" &&
@@ -141,11 +173,11 @@ export function HotspotMap({
         !isNaN(p.lon) &&
         p.lon !== 0;
       if (hasValid) return p;
-      const jitterLat = 11.235695 + (((idx * 17) % 9) - 4) * 0.0018;
-      const jitterLon = 77.781448 + (((idx * 23) % 9) - 4) * 0.0018;
+      const jitterLat = 11.235695 + (((idx * 17) % 5) - 2) * 0.00025;
+      const jitterLon = 77.781448 + (((idx * 23) % 5) - 2) * 0.00025;
       return { ...p, lat: jitterLat, lon: jitterLon };
     });
-  }, [points]);
+  }, [points, pastureCenter]);
 
   // Selected or highest-risk animal point
   const currentTargetPoint = useMemo(() => {
@@ -186,6 +218,7 @@ export function HotspotMap({
         distanceMeters < 1000
           ? `${Math.round(distanceMeters)} m`
           : `${(distanceMeters / 1000).toFixed(2)} km`,
+      isFar: distanceMeters > 3000,
     };
   }, [farmerLocation, currentTargetPoint]);
 
@@ -202,41 +235,105 @@ export function HotspotMap({
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
-        setFarmerLocation({ lat: latitude, lon: longitude, accuracy });
+        setFarmerLocation({ lat: latitude, lon: longitude, accuracy, isEstimate: false });
         setLocatingFarmer(false);
         toast.success(`Location locked: ${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E (±${Math.round(accuracy)}m)`);
-
-        // Center map to encompass both farmer and the herd
-        if (mapInstanceRef.current && window.L) {
-          const latLngs = [
-            [latitude, longitude],
-            ...validPoints.map((p) => [p.lat, p.lon]),
-          ];
-          mapInstanceRef.current.fitBounds(latLngs, { padding: [50, 50], maxZoom: 17 });
-        }
       },
       (err) => {
         setLocatingFarmer(false);
         console.warn("Geolocation failed/denied:", err.message);
-        // Provide friendly fallback: simulate farmer location at Village Center near pasture
-        const fallbackLat = 11.2330;
-        const fallbackLon = 77.7792;
-        setFarmerLocation({ lat: fallbackLat, lon: fallbackLon, accuracy: 25 });
-        toast.info("Using Village Base Station location as farmer starting point (Location permission was blocked).");
-        
-        if (mapInstanceRef.current && window.L) {
-          mapInstanceRef.current.fitBounds(
-            [
-              [fallbackLat, fallbackLon],
-              ...validPoints.map((p) => [p.lat, p.lon]),
-            ],
-            { padding: [50, 50], maxZoom: 17 }
-          );
+        toast.warn(`GPS blocked or unavailable: ${err.message}. Using farm base position.`);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+    );
+  }, []);
+
+  // Handler: Zoom in directly to the farmer's current location (Zoom level 18)
+  const handleZoomToFarmer = useCallback(() => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setLocatingFarmer(true);
+    toast.info("Acquiring exact GPS coordinates...");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setFarmerLocation({ lat: latitude, lon: longitude, accuracy, isEstimate: false });
+        setLocatingFarmer(false);
+        toast.success(`Zooming in to your GPS position (${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E)`);
+
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([latitude, longitude], 18, { animate: true, duration: 1.2 });
         }
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      (err) => {
+        setLocatingFarmer(false);
+        console.warn("GPS error:", err.message);
+        toast.info("Zooming to current farm base position.");
+        if (mapInstanceRef.current && farmerLocation) {
+          mapInstanceRef.current.flyTo([farmerLocation.lat, farmerLocation.lon], 18, { animate: true });
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
     );
-  }, [validPoints]);
+  }, [farmerLocation]);
+
+  // Handler: Zoom in directly to the selected animal / herd
+  const handleZoomToHerd = useCallback(() => {
+    if (!mapInstanceRef.current || !currentTargetPoint) return;
+    mapInstanceRef.current.flyTo([currentTargetPoint.lat, currentTargetPoint.lon], 18, { animate: true, duration: 1 });
+    toast.info(`Zoomed to ${currentTargetPoint.label || currentTargetPoint.id}`);
+  }, [currentTargetPoint]);
+
+  // Handler: Frame both farmer and selected animal on screen
+  const handleFitWalkingTrail = useCallback(() => {
+    if (!mapInstanceRef.current || !farmerLocation || !currentTargetPoint || !(window as any).L) return;
+    const L = (window as any).L;
+    const bounds = L.latLngBounds([
+      [farmerLocation.lat, farmerLocation.lon],
+      [currentTargetPoint.lat, currentTargetPoint.lon],
+    ]);
+    mapInstanceRef.current.fitBounds(bounds, { padding: [65, 65], maxZoom: 18 });
+    toast.info("Framed walking trail in view.");
+  }, [farmerLocation, currentTargetPoint]);
+
+  // Handler: Move herd near farmer's current GPS (for testing or local farm grazing)
+  const handlePlaceHerdNearMe = useCallback(() => {
+    if (!farmerLocation) {
+      toast.error("Please click 'Zoom to My GPS' first to lock your position.");
+      return;
+    }
+    const newCenter = { lat: farmerLocation.lat, lon: farmerLocation.lon, label: "My Farm Location" };
+    setPastureCenter(newCenter);
+    try {
+      localStorage.setItem("herd_custom_pasture_center", JSON.stringify(newCenter));
+    } catch {}
+    toast.success("Herd moved around your phone's GPS! Walking trail is now active in your pasture.");
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([farmerLocation.lat, farmerLocation.lon], 17, { animate: true });
+    }
+  }, [farmerLocation]);
+
+  // Handler: Reset herd back to official Gobichettipalayam pasture
+  const handleResetToGobichettipalayam = useCallback(() => {
+    setPastureCenter(null);
+    try {
+      localStorage.removeItem("herd_custom_pasture_center");
+    } catch {}
+    setFarmerLocation({
+      lat: 11.2348,
+      lon: 77.7802,
+      accuracy: 25,
+      isEstimate: true,
+    });
+    toast.info("Reset herd to Gobichettipalayam pasture.");
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([11.235695, 77.781448], 17, { animate: true });
+    }
+  }, []);
 
   // Handler: Open Turn-by-Turn walking navigation in Google Maps app
   const handleOpenGoogleMaps = () => {
@@ -252,7 +349,7 @@ export function HotspotMap({
   // Handler: Audio compass direction readout
   const handleSpeakDirections = () => {
     if (!navigationMetrics || !currentTargetPoint) {
-      toast.info("Click 'Locate My Device' to compute range and voice directions.");
+      toast.info("Computing walking directions...");
       return;
     }
     if (!("speechSynthesis" in window)) return;
@@ -266,9 +363,10 @@ export function HotspotMap({
     toast.success("Voice direction announced.");
   };
 
-  // Initialize Leaflet Map (SSR safe)
+  // Initialize Leaflet Map (SSR safe with ResizeObserver for complete tile rendering)
   useEffect(() => {
     let isMounted = true;
+    let resizeObserver: ResizeObserver | null = null;
 
     async function initMap() {
       if (typeof window === "undefined" || !mapContainerRef.current) return;
@@ -278,22 +376,20 @@ export function HotspotMap({
 
       if (!isMounted || !mapContainerRef.current) return;
 
-      // Center around real hardware coordinates
-      const defaultCenter = [11.235695, 77.781448];
+      const defaultCenter = pastureCenter
+        ? [pastureCenter.lat, pastureCenter.lon]
+        : [11.235695, 77.781448];
+
       const map = L.map(mapContainerRef.current, {
         center: defaultCenter as any,
-        zoom: 16,
+        zoom: 17,
         zoomControl: false,
         attributionControl: false,
       });
 
-      // Add Zoom Control at bottom-right
       L.control.zoom({ position: "bottomright" }).addTo(map);
-
-      // Attribution Control
       L.control.attribution({ position: "bottomleft", prefix: false }).addTo(map);
 
-      // Add base tile layer
       const provider = TILE_PROVIDERS[activeTileKey];
       const tileLayer = L.tileLayer(provider.url, {
         attribution: provider.attribution,
@@ -302,8 +398,26 @@ export function HotspotMap({
       }).addTo(map);
 
       tileLayerRef.current = tileLayer;
+      navigationLayerGroupRef.current = L.layerGroup().addTo(map);
       markersLayerGroupRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
+
+      // Handle container resizing to prevent incomplete map tiles or gray blocks
+      if (window.ResizeObserver && mapContainerRef.current) {
+        resizeObserver = new ResizeObserver(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        });
+        resizeObserver.observe(mapContainerRef.current);
+      }
+
+      setTimeout(() => {
+        if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
+      }, 150);
+      setTimeout(() => {
+        if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
+      }, 500);
 
       setMapReady(true);
     }
@@ -312,6 +426,9 @@ export function HotspotMap({
 
     return () => {
       isMounted = false;
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -334,16 +451,22 @@ export function HotspotMap({
       maxZoom: provider.maxZoom,
       subdomains: provider.subdomains || "abc",
     }).addTo(mapInstanceRef.current);
+
+    mapInstanceRef.current.invalidateSize();
   }, [activeTileKey]);
 
-  // Update Markers, Quarantine Circle, and Navigation Line
+  // Update Markers, Quarantine Circle, and Navigation Polyline
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !(window as any).L) return;
     const L = (window as any).L;
     const map = mapInstanceRef.current;
     const layerGroup = markersLayerGroupRef.current;
+    const navGroup = navigationLayerGroupRef.current;
+
+    if (!layerGroup || !navGroup) return;
 
     layerGroup.clearLayers();
+    navGroup.clearLayers();
 
     // 1. Draw 3 km Quarantine Buffer Ring if active
     if (bufferLayerRef.current) {
@@ -382,6 +505,7 @@ export function HotspotMap({
       const isSelected = p.id === selectedId;
       const isCritical = p.band === "critical";
       const isMedium = p.band === "medium";
+      const isCollarNode = p.id.includes("4471") || p.label === "4471";
 
       const bgCol = isCritical ? "#ef4444" : isMedium ? "#f59e0b" : "#10b981";
       const borderCol = isSelected ? "#ffffff" : isCritical ? "#7f1d1d" : isMedium ? "#78350f" : "#064e3b";
@@ -392,17 +516,19 @@ export function HotspotMap({
           ${
             isCritical
               ? `<span class="absolute -inset-2 rounded-full bg-red-500 opacity-60 ${pulseClass}"></span>`
+              : isCollarNode
+              ? `<span class="absolute -inset-1.5 rounded-full bg-emerald-400 opacity-70 animate-ping"></span>`
               : ""
           }
           <div style="background-color: ${bgCol}; border-color: ${borderCol};" class="relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-lg transition-transform transform group-hover:scale-125 ${
-        isSelected ? "ring-4 ring-white/80 scale-125" : ""
+        isSelected ? "ring-4 ring-white/80 scale-125" : isCollarNode ? "ring-2 ring-emerald-300" : ""
       }">
             <span class="text-[10px] font-extrabold text-white">
               ${p.label ? p.label.slice(-3) : p.id.slice(-3)}
             </span>
           </div>
           <div class="absolute -bottom-5 whitespace-nowrap rounded bg-black/85 px-1.5 py-0.5 text-[9px] font-mono font-bold text-white shadow-md pointer-events-none">
-            ${p.label || p.id}
+            ${isCollarNode ? `📡 ${p.label || p.id} (Live ESP8266)` : p.label || p.id}
           </div>
         </div>
       `;
@@ -414,14 +540,21 @@ export function HotspotMap({
         iconAnchor: [14, 14],
       });
 
-      const marker = L.marker([p.lat, p.lon] as any, { icon: customIcon }).addTo(layerGroup);
+      const marker = L.marker([p.lat, p.lon] as any, {
+        icon: customIcon,
+        zIndexOffset: isSelected ? 800 : isCollarNode ? 600 : isCritical ? 500 : 100,
+      }).addTo(layerGroup);
 
+      // Smooth pan on click without zooming out!
       marker.on("click", () => {
         if (onSelect) onSelect(p.id);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.panTo([p.lat, p.lon], { animate: true, duration: 0.5 });
+        }
       });
 
       marker.bindPopup(`
-        <div class="p-2 space-y-1 font-sans text-xs">
+        <div class="p-2 space-y-1.5 font-sans text-xs">
           <div class="font-bold text-sm text-foreground flex items-center gap-1.5">
             <span>🏷️ ${p.id}</span>
             <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
@@ -429,12 +562,12 @@ export function HotspotMap({
             }">${p.band}</span>
           </div>
           <div class="text-muted-foreground text-[11px]">
-            GPS: ${p.lat.toFixed(4)}°N, ${p.lon.toFixed(4)}°E<br/>
-            ${typeof p.bdi === "number" ? `BDI Score: <b>${p.bdi.toFixed(2)}</b>` : ""}
+            GPS: ${p.lat.toFixed(5)}°N, ${p.lon.toFixed(5)}°E<br/>
+            ${typeof p.bdi === "number" ? `Health BDI: <b>${p.bdi.toFixed(2)}</b>` : ""}
           </div>
           <div class="pt-1 flex gap-1.5">
             <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}&travelmode=walking', '_blank')" class="w-full bg-blue-600 text-white font-bold py-1 px-2 rounded text-[10px] hover:bg-blue-700">
-              Navigate with Google Maps
+              Walk to Animal (Google Maps)
             </button>
           </div>
         </div>
@@ -473,217 +606,320 @@ export function HotspotMap({
       }).addTo(map);
 
       farmerMarker.bindPopup(`
-        <div class="p-1 font-sans text-xs">
-          <b>Your Current GPS Position</b><br/>
-          <span class="text-[11px] text-muted-foreground">${farmerLocation.lat.toFixed(4)}°N, ${farmerLocation.lon.toFixed(4)}°E</span>
+        <div class="p-2 font-sans text-xs space-y-1">
+          <b>🚶 Farmer (Your Current Position)</b><br/>
+          <span class="text-[11px] text-muted-foreground">${farmerLocation.lat.toFixed(5)}°N, ${farmerLocation.lon.toFixed(5)}°E</span><br/>
+          <span class="text-[10px] font-bold text-blue-600">${farmerLocation.isEstimate ? "📍 Farm Gate Position" : "🎯 Real-Time GPS Locked"}</span>
         </div>
       `);
 
       farmerMarkerRef.current = farmerMarker;
     }
 
-    // 4. Draw Animated Direction Polyline from Farmer -> Selected/Critical Animal
-    if (navigationLineRef.current) {
-      map.removeLayer(navigationLineRef.current);
-      navigationLineRef.current = null;
-    }
-
+    // 4. Draw Walking Polyline & Distance Chip
     if (farmerLocation && currentTargetPoint) {
       const lineCoords = [
         [farmerLocation.lat, farmerLocation.lon],
         [currentTargetPoint.lat, currentTargetPoint.lon],
       ];
 
+      // White outline casing for high visibility over satellite imagery
+      L.polyline(lineCoords as any, {
+        color: "#ffffff",
+        weight: 6,
+        opacity: 0.9,
+      }).addTo(navGroup);
+
+      // Vibrant blue dashed walking line
       const navLine = L.polyline(lineCoords as any, {
-        color: "#3b82f6",
-        weight: 3.5,
-        opacity: 0.85,
+        color: "#2563eb",
+        weight: 4,
+        opacity: 1,
         dashArray: "8, 8",
         lineCap: "round",
-      }).addTo(map);
+      }).addTo(navGroup);
 
-      navigationLineRef.current = navLine;
+      navLine.bindTooltip(
+        `<div class="p-1 font-sans text-xs font-bold text-blue-600 bg-white rounded shadow-sm">🚶 Walking Trail to ${currentTargetPoint.label || currentTargetPoint.id} (${navigationMetrics?.formattedDistance || ""})</div>`,
+        { permanent: false, direction: "center" }
+      );
+
+      // Midpoint distance badge
+      const midLat = (farmerLocation.lat + currentTargetPoint.lat) / 2;
+      const midLon = (farmerLocation.lon + currentTargetPoint.lon) / 2;
+      const chipHtml = `
+        <div style="transform: translate(-50%, -50%);" class="inline-flex items-center gap-1 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-md border border-white whitespace-nowrap pointer-events-none">
+          🚶 ${navigationMetrics?.formattedDistance || "Walking Path"}
+        </div>
+      `;
+      L.marker([midLat, midLon] as any, {
+        icon: L.divIcon({ html: chipHtml, className: "trail-dist-chip", iconSize: [0, 0] }),
+        interactive: false,
+      }).addTo(navGroup);
     }
-  }, [mapReady, validPoints, selectedId, activeContainment, farmerLocation, currentTargetPoint, onSelect]);
+
+    // 5. Fit bounds ONLY on initial load, NEVER on clicking an animal marker!
+    if (!hasInitialFitRef.current && validPoints.length > 0) {
+      const bounds = L.latLngBounds(validPoints.map((p) => [p.lat, p.lon]));
+      if (farmerLocation && !navigationMetrics?.isFar) {
+        bounds.extend([farmerLocation.lat, farmerLocation.lon]);
+      }
+      map.fitBounds(bounds, { padding: [55, 55], maxZoom: 18 });
+      hasInitialFitRef.current = true;
+    }
+  }, [mapReady, validPoints, selectedId, activeContainment, farmerLocation, currentTargetPoint, onSelect, navigationMetrics]);
 
   // Handler: Fit bounds to all animals
   const handleFitAllAnimals = () => {
-    if (!mapInstanceRef.current || !validPoints.length) return;
-    const coords = validPoints.map((p) => [p.lat, p.lon]);
-    if (farmerLocation) coords.push([farmerLocation.lat, farmerLocation.lon]);
-    mapInstanceRef.current.fitBounds(coords as any, { padding: [50, 50], maxZoom: 16 });
+    if (!mapInstanceRef.current || !validPoints.length || !(window as any).L) return;
+    const L = (window as any).L;
+    const bounds = L.latLngBounds(validPoints.map((p) => [p.lat, p.lon]));
+    if (farmerLocation && !navigationMetrics?.isFar) {
+      bounds.extend([farmerLocation.lat, farmerLocation.lon]);
+    }
+    mapInstanceRef.current.fitBounds(bounds, { padding: [55, 55], maxZoom: 18 });
+    toast.info("Fit view to herd.");
   };
 
   return (
-    <div className="relative h-[480px] w-full overflow-hidden rounded-xl border border-border/80 bg-background shadow-md">
+    <div className={`relative isolate z-0 w-full overflow-hidden rounded-xl border border-border/80 bg-background shadow-md ${className || "h-[540px] lg:h-[560px]"}`}>
       {/* Real Map Canvas */}
       <div ref={mapContainerRef} className="h-full w-full z-0" />
 
       {/* Top Floating Controls Bar */}
-      <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-[500]">
-        {/* Left: Map Layer Switcher (No API Key required) */}
+      <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-30">
+        {/* Left: Map Layer Switcher */}
         <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-card/90 p-1 backdrop-blur shadow-md pointer-events-auto">
           <button
             type="button"
             onClick={() => setActiveTileKey("google_hybrid")}
-            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold transition ${
+            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold transition cursor-pointer ${
               activeTileKey === "google_hybrid"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-muted"
             }`}
             title="Satellite Photo with roads & field names"
           >
-            🛰️ Satellite (Google)
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTileKey("satellite")}
-            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold transition ${
-              activeTileKey === "satellite"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-            title="High-resolution ESRI Aerial Orthophoto"
-          >
-            🌾 ESRI Pasture
+            🛰️ Satellite
           </button>
           <button
             type="button"
             onClick={() => setActiveTileKey("streets")}
-            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold transition ${
+            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold transition cursor-pointer ${
               activeTileKey === "streets"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-muted"
             }`}
-            title="OpenStreetMap Topographic Roads"
+            title="OpenStreetMap Roads & Paths"
           >
             🗺️ Street (OSM)
           </button>
-        </div>
-
-        {/* Right: Farmer Geolocation & Recenter Quick Buttons */}
-        <div className="flex items-center gap-2 pointer-events-auto">
           <button
             type="button"
-            onClick={handleLocateFarmer}
-            disabled={locatingFarmer}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold shadow-md transition backdrop-blur ${
-              farmerLocation
-                ? "border-blue-500/50 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
-                : "border-primary/50 bg-primary/20 text-primary hover:bg-primary/30"
+            onClick={() => setActiveTileKey("satellite")}
+            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold transition cursor-pointer ${
+              activeTileKey === "satellite"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted"
             }`}
+            title="ESRI Field Orthophoto"
           >
-            {farmerLocation ? (
-              <LocateFixed className="h-4 w-4 text-blue-400 animate-pulse" />
-            ) : (
-              <Locate className={`h-4 w-4 ${locatingFarmer ? "animate-spin" : ""}`} />
-            )}
-            <span>{locatingFarmer ? "Locking GPS..." : farmerLocation ? "GPS Locked" : "Locate My Device"}</span>
+            🌾 Pasture
+          </button>
+        </div>
+
+        {/* Right: Quick Action Controls */}
+        <div className="flex items-center gap-1.5 pointer-events-auto">
+          {/* Zoom to Farmer's Current GPS Location */}
+          <button
+            type="button"
+            onClick={handleZoomToFarmer}
+            disabled={locatingFarmer}
+            className="flex items-center gap-1.5 rounded-lg border border-blue-500/50 bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-md hover:bg-blue-500 transition backdrop-blur cursor-pointer"
+            title="Zoom into your phone's real-time GPS coordinates"
+          >
+            <Locate className={`h-4 w-4 ${locatingFarmer ? "animate-spin" : ""}`} />
+            <span>{locatingFarmer ? "Locating..." : "🎯 Zoom to My GPS"}</span>
           </button>
 
+          {/* Zoom to Herd */}
+          <button
+            type="button"
+            onClick={handleZoomToHerd}
+            className="flex items-center gap-1 rounded-lg border border-border/80 bg-card/90 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted shadow-md backdrop-blur transition cursor-pointer"
+            title="Zoom into the selected animal"
+          >
+            <Crosshair className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Herd</span>
+          </button>
+
+          {/* Fit All */}
           <button
             type="button"
             onClick={handleFitAllAnimals}
-            className="flex items-center gap-1 rounded-lg border border-border/80 bg-card/90 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted shadow-md backdrop-blur transition"
-            title="Fit view to show all animals and yourself"
+            className="flex items-center gap-1 rounded-lg border border-border/80 bg-card/90 px-2 py-1.5 text-xs font-semibold text-foreground hover:bg-muted shadow-md backdrop-blur transition cursor-pointer"
+            title="Fit view to show all animals"
           >
-            <Crosshair className="h-3.5 w-3.5" />
-            <span>Fit All</span>
+            <Maximize2 className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Floating Rangefinder & Lost Animal Direction HUD (Bottom-Left) */}
-      <div className="absolute bottom-4 left-3 z-[500] max-w-sm rounded-xl border border-border/80 bg-card/95 p-3.5 shadow-xl backdrop-blur-md space-y-2.5">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-2">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/15 text-primary">
-              <Compass className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider leading-none">
-                Rangefinder & Direction HUD
-              </p>
-              <h4 className="text-xs font-bold text-foreground mt-0.5 flex items-center gap-1.5">
-                Target: {currentTargetPoint?.label || currentTargetPoint?.id || "None"}
-                {currentTargetPoint?.band === "critical" && (
-                  <span className="rounded bg-critical px-1.5 py-0.2 text-[9px] font-bold text-white animate-pulse">
-                    Outbreak
-                  </span>
-                )}
-              </h4>
-            </div>
-          </div>
-
+      {/* Floating Lost Animal Walking Direction HUD (Bottom-Left) */}
+      <div
+        className={`absolute bottom-3 left-3 z-30 transition-all duration-200 rounded-xl border border-border/80 bg-card/95 shadow-xl backdrop-blur-md ${
+          isHudCollapsed ? "px-3 py-2 max-w-[280px]" : "p-3.5 max-w-sm space-y-2.5"
+        }`}
+      >
+        <div className={`flex items-center justify-between gap-2.5 ${isHudCollapsed ? "" : "border-b border-border pb-2"}`}>
           <button
             type="button"
-            onClick={handleSpeakDirections}
-            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition"
-            title="Audio compass directions"
+            onClick={() => setIsHudCollapsed(!isHudCollapsed)}
+            className="flex items-center gap-2 text-left cursor-pointer hover:opacity-85 transition min-w-0"
           >
-            <Volume2 className="h-4 w-4" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <Footprints className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] uppercase font-bold text-primary tracking-wider leading-none">
+                Lost Animal Walking Pathway
+              </p>
+              <h4 className="text-xs font-bold text-foreground mt-0.5 flex items-center gap-1.5 truncate">
+                Find: {currentTargetPoint?.label || currentTargetPoint?.id?.split("-").pop() || "Animal"}
+                {navigationMetrics ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[11px] font-bold">
+                    · {navigationMetrics.formattedDistance} ({navigationMetrics.cardinal})
+                  </span>
+                ) : null}
+              </h4>
+            </div>
           </button>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {navigationMetrics && (
+              <button
+                type="button"
+                onClick={handleSpeakDirections}
+                className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+                title="Audio walking directions"
+              >
+                <Volume2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsHudCollapsed(!isHudCollapsed)}
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+              title={isHudCollapsed ? "Expand Walking Pathway" : "Minimize"}
+            >
+              {isHudCollapsed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
 
-        {navigationMetrics ? (
-          <div className="space-y-2">
-            {/* Live Distance & Walking ETA */}
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-md bg-muted/60 p-2">
-                <p className="text-[10px] text-muted-foreground font-medium">Distance</p>
-                <p className="font-mono text-sm font-bold text-primary">{navigationMetrics.formattedDistance}</p>
-              </div>
+        {!isHudCollapsed && (
+          <>
+            {navigationMetrics ? (
+              <div className="space-y-2.5">
+                {/* Live Distance & Walking ETA */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-md bg-muted/60 p-2">
+                    <p className="text-[10px] text-muted-foreground font-medium">Walking Range</p>
+                    <p className="font-mono text-sm font-bold text-primary">{navigationMetrics.formattedDistance}</p>
+                  </div>
 
-              <div className="rounded-md bg-muted/60 p-2">
-                <p className="text-[10px] text-muted-foreground font-medium">Bearing</p>
-                <p className="font-mono text-sm font-bold text-foreground flex items-center justify-center gap-1">
-                  <Navigation
-                    className="h-3.5 w-3.5 text-blue-500"
-                    style={{ transform: `rotate(${navigationMetrics.bearingDeg}deg)` }}
-                  />
-                  {navigationMetrics.cardinal} ({navigationMetrics.bearingDeg}°)
+                  <div className="rounded-md bg-muted/60 p-2">
+                    <p className="text-[10px] text-muted-foreground font-medium">Compass Heading</p>
+                    <p className="font-mono text-sm font-bold text-foreground flex items-center justify-center gap-1">
+                      <Navigation
+                        className="h-3.5 w-3.5 text-blue-500"
+                        style={{ transform: `rotate(${navigationMetrics.bearingDeg}deg)` }}
+                      />
+                      {navigationMetrics.cardinal} ({navigationMetrics.bearingDeg}°)
+                    </p>
+                  </div>
+
+                  <div className="rounded-md bg-muted/60 p-2">
+                    <p className="text-[10px] text-muted-foreground font-medium">Walking ETA</p>
+                    <p className="font-mono text-sm font-bold text-emerald-500 flex items-center justify-center gap-1">
+                      <Footprints className="h-3.5 w-3.5" />
+                      ~{navigationMetrics.walkingMinutes} min
+                    </p>
+                  </div>
+                </div>
+
+                {/* Notice if the farmer's device is far from the current pasture */}
+                {navigationMetrics.isFar && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 space-y-1.5 text-left">
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium leading-snug">
+                      📍 Your phone is currently {navigationMetrics.formattedDistance} away from the Gobichettipalayam field.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handlePlaceHerdNearMe}
+                        className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-500 transition cursor-pointer"
+                      >
+                        <MapPin className="h-3 w-3" />
+                        Place Herd at My Current GPS
+                      </button>
+                      {pastureCenter && (
+                        <button
+                          type="button"
+                          onClick={handleResetToGobichettipalayam}
+                          className="text-[10px] text-muted-foreground hover:underline cursor-pointer"
+                        >
+                          Reset to Gobichettipalayam
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Primary Action Buttons */}
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={handleOpenGoogleMaps}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-500 shadow transition cursor-pointer text-center"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open Google Maps
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleFitWalkingTrail}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer text-center"
+                    title="Frame the entire walking trail on map"
+                  >
+                    <Footprints className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    Fit Trail in View
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-1">
+                <p className="text-xs text-muted-foreground">
+                  Tap below to compute walking distance and route to this animal.
                 </p>
+                <button
+                  type="button"
+                  onClick={handleZoomToFarmer}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary/20 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/30 transition cursor-pointer"
+                >
+                  <Locate className="h-3.5 w-3.5" />
+                  Show Walking Pathway to Animal
+                </button>
               </div>
-
-              <div className="rounded-md bg-muted/60 p-2">
-                <p className="text-[10px] text-muted-foreground font-medium">Walking ETA</p>
-                <p className="font-mono text-sm font-bold text-emerald-500 flex items-center justify-center gap-1">
-                  <Footprints className="h-3.5 w-3.5" />
-                  ~{navigationMetrics.walkingMinutes} min
-                </p>
-              </div>
-            </div>
-
-            {/* Turn-by-Turn in Google Maps Action Button */}
-            <button
-              type="button"
-              onClick={handleOpenGoogleMaps}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-500 shadow-md transition"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Navigate to Herd in Google Maps
-            </button>
-          </div>
-        ) : (
-          <div className="text-center py-1">
-            <p className="text-xs text-muted-foreground">
-              Farmer is at home and herd is grazing?
-            </p>
-            <button
-              type="button"
-              onClick={handleLocateFarmer}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary/20 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/30 transition"
-            >
-              <Locate className="h-3.5 w-3.5" />
-              Get My Location & Show Directions
-            </button>
-          </div>
+            )}
+          </>
         )}
       </div>
 
       {/* Dynamic 3 km Containment Zone Indicator (Top-Center) */}
       {activeContainment?.active && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[500] pointer-events-none">
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
           <div className="flex items-center gap-2 rounded-full border border-critical/50 bg-critical/95 px-3 py-1 text-xs font-bold text-white shadow-lg backdrop-blur animate-pulse">
             <ShieldAlert className="h-3.5 w-3.5" />
             3 km Active Outbreak Quarantine Buffer

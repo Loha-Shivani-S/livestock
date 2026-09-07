@@ -17,7 +17,27 @@ import {
   getIngestConfig as getIngestConfigFn,
   registerAnimal as registerAnimalFn,
   getSupabaseDiagnostics as getSupabaseDiagnosticsFn,
+  resolveAlert as resolveAlertFn,
+  dispatchAdvisory as dispatchAdvisoryFn,
 } from "./data";
+
+export async function dispatchAdvisory(input: {
+  village?: string;
+  tagId?: string;
+  disease?: string;
+  language?: string;
+  message: string;
+  recipientPhone?: string;
+  recipientEmail?: string;
+  addToDirectory?: boolean;
+  userName?: string;
+}) {
+  return dispatchAdvisoryFn({ data: input as any });
+}
+
+export async function resolveAlert(input: { alertId: string; note?: string }) {
+  return resolveAlertFn({ data: input });
+}
 
 export async function getCommandData() {
   return getCommandDataFn({ data: undefined });
@@ -116,8 +136,12 @@ export async function submitFieldReport(input: {
   lat?: number | undefined;
   lon?: number | undefined;
   channel?: string | undefined;
+  reporter_name?: string | undefined;
+  reporter_phone?: string | undefined;
+  reporter_email?: string | undefined;
+  send_email_copy?: boolean | undefined;
 }) {
-  return submitFieldReportFn({ data: input });
+  return submitFieldReportFn({ data: input as any });
 }
 
 export async function ingestTelemetry(input: {

@@ -25,10 +25,10 @@ function DevicesPage() {
   const [copied, setCopied] = useState(false);
 
   // Telemetry simulation states
-  const [tag, setTag] = useState("IN-MH-2031-4471");
+  const [tag, setTag] = useState("IN-TN-2031-4471");
   const [temp, setTemp] = useState(40.8);
   const [hr, setHr] = useState(96);
-  const [selectedNode, setSelectedNode] = useState("GW-02");
+  const [selectedNode, setSelectedNode] = useState("GW-GOBICHETTI-01");
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const ingestUrl = `${origin}/api/public/ingest`;
@@ -332,7 +332,7 @@ function DevicesPage() {
               onChange={(e) => setSelectedNode(e.target.value)}
               className="mt-1 w-full rounded-md border border-input bg-card px-2 py-1.5 text-sm"
             >
-              <option value="GW-DINDORI-01">GW-01 (Gobichettipalayam Sector 1)</option>
+              <option value="GW-GOBICHETTI-01">GW-01 (Gobichettipalayam Sector 1)</option>
               <option value="GW-02">GW-02 (Kullampalayam)</option>
               <option value="GW-03">GW-03 (Lakkampatti)</option>
               <option value="GW-04">GW-04 (Pariyoor)</option>

@@ -1,9 +1,18 @@
-import { createFileRoute, Navigate, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/useAuth";
 
 function AuthenticatedLayout() {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate({ to: "/auth" });
+    }
+  }, [loading, user, navigate]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -11,7 +20,11 @@ function AuthenticatedLayout() {
       </div>
     );
   }
-  if (!user) return <Navigate to="/auth" />;
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <AppShell>
       <Outlet />

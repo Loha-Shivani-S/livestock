@@ -118,7 +118,7 @@ function LabPage() {
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Scan or enter QR Token, Requisition Reference (e.g. RDDL/NSK/2026/4102), or Tag ID..."
+              placeholder="Scan or enter QR Token, Requisition Reference (e.g. DVDL/ERD/2026/4102), or Tag ID..."
               className="w-full rounded-md border border-input bg-card py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -126,7 +126,7 @@ function LabPage() {
             <button
               type="button"
               onClick={() => {
-                const sampleTokens = ["REQ-NSK-4102-TOK", "RDDL/NSK/2026/4102", "IN-MH-2031-4471"];
+                const sampleTokens = ["REQ-ERD-4102-TOK", "DVDL/ERD/2026/4102", "IN-TN-2031-4471"];
                 const token = sampleTokens[Math.floor(Math.random() * sampleTokens.length)];
                 setSearchQuery(token);
                 toast.success(`Scanned QR Slip: ${token}`);

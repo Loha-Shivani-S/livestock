@@ -55,13 +55,29 @@ const en: Dict = {
   "cmd.legend.low": "Low",
   "cmd.legend.medium": "Medium",
   "cmd.legend.critical": "Critical",
-  "cmd.temp": "Body temperature",
-  "cmd.hr": "Heart rate",
-  "cmd.motion": "Motion (VeDBA)",
-  "cmd.bdi": "Biological Degradation Index",
+  "cmd.temp": "Body Temperature",
+  "cmd.hr": "Heart Rate",
+  "cmd.motion": "Body Activity & Movement",
+  "cmd.thi": "Weather & Heat Stress",
+  "cmd.bdi": "Biological Health Index",
   "cmd.lastPacket": "Last packet",
   "cmd.raiseLab": "Raise lab requisition",
   "cmd.noSelection": "Select an animal to see its live vitals.",
+  "cmd.triage.title": "Current Operational Triage State",
+  "cmd.triage.state1": "STATE 1: BASELINE NORMAL (GREEN)",
+  "cmd.triage.state2": "STATE 2: SENTINEL ANOMALY (AMBER)",
+  "cmd.triage.state3": "STATE 3: CLUSTER CONTAINMENT (RED)",
+  "cmd.triage.desc1": "Normal Herd Physiology (BDI < 0.40). Coupled cardio-kinetic dynamics. All GIS markers green. No containment zones.",
+  "cmd.triage.desc2": "Sentinel Pre-Clinical Anomaly Detected (0.40 ≤ BDI < 0.70). Subclinical distress flagged. Monitoring resting bout intervals.",
+  "cmd.triage.desc3": "Acute Outbreak Confirmed (BDI ≥ 0.70). Dynamic 3 km quarantine buffer active. Movement restriction and ring vaccination triggered.",
+  "cmd.triage.collar": "Collar Telemetry",
+  "cmd.triage.collarNode": "ESP8266 (Cow 1)",
+  "cmd.triage.collarLive": "100% Live Ingest",
+  "cmd.triage.peakBdi": "Peak Herd BDI",
+  "cmd.triage.gateway": "Ingest Gateway",
+  "cmd.triage.gatewayVal": "GW-GOBICHETTI-01",
+  "cmd.triage.surveillance": "Surveillance Mode",
+  "cmd.feed.broadcast": "Broadcast Advisory",
 
   "report.title": "Report a sick animal",
   "report.lede": "Tap the pictures that match what you see. Speak if it is easier.",
@@ -364,31 +380,91 @@ const te: Dict = {
 };
 
 const ta: Dict = {
-  "app.name": "பசுரக்ஷக்",
-  "app.tagline": "கால்நடை நோய் முன் எச்சரிக்கை மற்றும் கண்காணிப்பு",
+  "app.name": "ஹெர்ட்சென்டினல் (HerdSentinel)",
+  "app.tagline": "கால்நடை நோய் முன் எச்சரிக்கை மற்றும் தொற்று பரவல் தடுப்பு அமைப்பு",
   "nav.command": "கட்டளை மையம்",
-  "nav.report": "தகவல் தெரிவிக்க",
+  "nav.report": "கள அறிக்கை",
   "nav.register": "கால்நடை பதிவு",
-  "nav.lab": "ஆய்வக போர்டல்",
+  "nav.lab": "ஆய்வக போர்டல் & QR",
   "nav.devices": "காலர்கள் & கேட்வேகள்",
   "nav.officers": "அதிகாரி எச்சரிக்கைகள்",
   "nav.signin": "உள்நுழைய",
   "nav.signout": "வெளியேற",
+  "nav.openConsole": "கட்டளை மையத்தை திறக்கவும்",
+
+  "home.eyebrow": "கால்நடை நோய் ஆரம்பகால எச்சரிக்கை அமைப்பு",
+  "home.title": "நோய் பரவலை முதல் நாளிலேயே கண்டறிந்து கட்டுப்படுத்துங்கள்.",
+  "home.lede":
+    "சென்சார் காலர்கள், கிராம கேட்வேகள் மற்றும் கள அறிக்கைகள் ஒரே தளத்தில் இணைகின்றன. அதிகாரிகள் நோயின் தீவிரத்தை உடனடியாகக் கண்காணிக்கலாம்; விவசாயிகள் தங்கள் சொந்த மொழியில் குரல் அல்லது படம் மூலம் தகவல் தெரிவிக்கலாம்.",
+  "home.cta.primary": "கட்டளை மையத்தை திறக்கவும்",
+  "home.cta.secondary": "கள அறிக்கை சமர்ப்பிக்கவும்",
+  "home.stat1": "சராசரி தகவல் பதிவு நேரம், முன்னோடி வட்டம்",
+  "home.stat2": "உடல்நிலை கண்காணிக்கும் காலர் பொருத்தப்பட்ட கால்நடைகள்",
+  "home.stat3": "இணைப்பில் உள்ள கிராம கேட்வேகள்",
+  "home.how": "கண்காணிப்பு சங்கிலி எவ்வாறு செயல்படுகிறது",
+
   "cmd.title": "கட்டளை மையம்",
+  "cmd.subtitle": "கோபிசெட்டிபாளையம் வட்டம், ஈரோடு மாவட்டம்",
   "cmd.activeAlerts": "தற்போதைய எச்சரிக்கைகள்",
+  "cmd.animalsTracked": "கண்காணிக்கப்படும் கால்நடைகள்",
+  "cmd.avgBdi": "சராசரி ஆபத்து குறியீடு (BDI)",
+  "cmd.vaccCoverage": "கோமாரி தடுப்பூசி பாதுகாப்பு",
+  "cmd.map": "நோய் வரைபடம் & 3 கி.மீ தனிமைப்படுத்தப்பட்ட வளையம்",
+  "cmd.vitals": "நேரலை உடல்நிலை",
+  "cmd.feed": "அவசர எச்சரிக்கை பதிவுகள்",
+  "cmd.reports": "சமீபத்திய கள அறிக்கைகள்",
+  "cmd.dossier": "கால்நடை விவரக் குறிப்பேடு",
+  "cmd.legend.low": "சாதாரணம்",
+  "cmd.legend.medium": "கண்காணிப்பில்",
+  "cmd.legend.critical": "அவசர நிலை",
+  "cmd.temp": "உடல் வெப்பநிலை",
+  "cmd.hr": "இதயத் துடிப்பு",
+  "cmd.motion": "உடல் அசைவு நிலை",
+  "cmd.thi": "வெப்பநிலை தாக்கம்",
+  "cmd.bdi": "உடல்நல குறியீடு",
+  "cmd.lastPacket": "கடைசி தகவல் வந்த நேரம்",
+  "cmd.raiseLab": "ஆய்வக கோரிக்கை படிவம் பெறுக",
+  "cmd.noSelection": "நேரலை உடல்நிலையைக் காண கால்நடையைத் தேர்ந்தெடுக்கவும்.",
+  "cmd.triage.title": "தற்போதைய அவசர செயல்பாட்டு நிலை",
+  "cmd.triage.state1": "நிலை 1: இயல்பான நிலை (பச்சை)",
+  "cmd.triage.state2": "நிலை 2: ஆரம்ப எச்சரிக்கை (மஞ்சள்)",
+  "cmd.triage.state3": "நிலை 3: அவசர நோய் கட்டுப்பாடு (சிவப்பு)",
+  "cmd.triage.desc1": "இயல்பான உடல்நிலை (BDI < 0.40). அனைத்து சென்சார் அளவுகளும் சீராக உள்ளன. கட்டுப்பாட்டு வளையங்கள் இல்லை.",
+  "cmd.triage.desc2": "ஆரம்ப கட்ட அறிகுறி கண்டறியப்பட்டது (0.40 ≤ BDI < 0.70). தீவிர கண்காணிப்பில் வைக்கப்பட்டுள்ளது.",
+  "cmd.triage.desc3": "நோய் பரவல் உறுதிப்படுத்தப்பட்டது (BDI ≥ 0.70). 3 கி.மீ தனிமைப்படுத்தப்பட்ட பகுதி மற்றும் அவசர தடுப்பூசி நடவடிக்கை செயல்படுத்தப்பட்டுள்ளது.",
+  "cmd.triage.collar": "காலர் சென்சார்",
+  "cmd.triage.collarNode": "ESP8266 (மாடு 1)",
+  "cmd.triage.collarLive": "100% நேரலை தரவு",
+  "cmd.triage.peakBdi": "உச்ச BDI குறியீடு",
+  "cmd.triage.gateway": "கேட்வே முனை",
+  "cmd.triage.gatewayVal": "GW-கோபிசெட்டி-01",
+  "cmd.triage.surveillance": "கண்காணிப்பு முறை",
+  "cmd.feed.broadcast": "அவசர எச்சரிக்கை அனுப்புக",
+
   "report.title": "நோயுற்ற கால்நடை பற்றி தெரிவிக்க",
-  "report.lede": "அறிகுறிகளின் படங்களை தேர்வு செய்யவும் அல்லது பேசி கூறவும்.",
+  "report.lede": "அறிகுறிகளின் படங்களை தொடவும் அல்லது பேசி தெரிவிக்கவும்.",
   "report.step1": "1. என்ன அறிகுறிகள் உள்ளன?",
   "report.step2": "2. எத்தனை கால்நடைகள்?",
-  "report.step3": "3. கூடுதல் விவரங்கள்",
-  "report.sec1.speech": "படி 1: வாயில் கொப்புளங்கள், எச்சில் வடிதல், நொண்டல், தீவனம் உண்ணாமை போன்ற அறிகுறிகளை தேர்ந்தெடுக்கவும்.",
-  "report.sec2.speech": "படி 2: பாதிக்கப்பட்ட கால்நடைகளின் எண்ணிக்கை, ஊர் பெயர் குறிப்பிடவும்.",
-  "report.sec3.speech": "படி 3: உங்கள் குரலில் பேசி அல்லது தட்டச்சு செய்து அனுப்பவும்.",
+  "report.step3": "3. கூடுதல் விவரங்கள் பேசவும் அல்லது எழுதவும்",
   "report.affected": "பாதிக்கப்பட்ட கால்நடைகள்",
   "report.deaths": "இறந்த கால்நடைகள்",
   "report.village": "கிராமம்",
+  "report.tag": "காதணி எண் (தெரிந்தால்)",
+  "report.species": "கால்நடை இனம்",
   "report.speak": "பேச அழுத்தவும்",
-  "report.submit": "அனுப்பவும்",
+  "report.listening": "கேட்கிறது…",
+  "report.notes": "விவரக் குறிப்பு",
+  "report.submit": "அறிக்கை அனுப்பவும்",
+  "report.sending": "அனுப்பப்படுகிறது…",
+  "report.sent": "அறிக்கை வட்டார கால்நடை உதவி மருத்துவருக்கு அனுப்பப்பட்டது.",
+  "report.needSymptom": "குறைந்தது ஒரு படத்தை தேர்வு செய்யவும் அல்லது குறிப்பு எழுதவும்.",
+  "report.offline": "கைபேசியில் சேமிக்கப்பட்டது. இணைய இணைப்பு வந்ததும் தானாக அனுப்பப்படும்.",
+  "report.speechUnsupported": "இந்த உலாவியில் குரல் உள்ளீடு ஆதரிக்கப்படவில்லை.",
+
+  "report.sec1.speech": "படி 1: வாயில் கொப்புளங்கள், எச்சில் வடிதல், நொண்டல், தீவனம் உண்ணாமை போன்ற அறிகுறிகளை தேர்ந்தெடுக்கவும்.",
+  "report.sec2.speech": "படி 2: பாதிக்கப்பட்ட கால்நடைகளின் எண்ணிக்கை மற்றும் கிராமத்தை குறிப்பிடவும்.",
+  "report.sec3.speech": "படி 3: உங்கள் குரலில் பேசி அல்லது தட்டச்சு செய்து அனுப்பவும்.",
+
   "sym.mouth": "வாயில் கொப்புளங்கள்",
   "sym.saliva": "அதிக எச்சில் வடிதல்",
   "sym.lame": "நொண்டல்",
@@ -397,6 +473,35 @@ const ta: Dict = {
   "sym.milk": "பால் குறைவு",
   "sym.down": "எழ முடியாமை",
   "sym.nodules": "தோலில் கட்டிகள்",
+
+  "reg.title": "கால்நடை பதிவுப் புத்தகம்",
+  "reg.lede": "பாரத் பசுதன் முறைப்படி பதிவு செய்யப்பட்ட காதணி விபரங்கள்.",
+  "reg.search": "காதணி எண், உரிமையாளர் அல்லது ஊர் பெயர் தேடவும்",
+  "reg.vaccinations": "தடுப்பூசி வரலாறு",
+  "reg.treatments": "சிகிச்சை வரலாறு",
+  "reg.none": "பதிவுகள் எதுவும் இல்லை.",
+  "reg.owner": "உரிமையாளர் பெயர்",
+  "reg.village": "கிராமம்",
+  "reg.breed": "இனம்",
+  "reg.dob": "பிறந்த தேதி",
+
+  "dev.title": "காலர்கள் & கேட்வேகள்",
+  "dev.lede": "லோரா காலர் சென்சார்கள் கிராம கேட்வே வழியாக தகவல்களை அனுப்புகின்றன.",
+  "dev.endpoint": "கேட்வே தரவு முனை",
+  "dev.simulate": "சோதனை தகவல் அனுப்பு",
+  "dev.sent": "தகவல் பெறப்பட்டு ஆய்வு செய்யப்பட்டது.",
+
+  "auth.signin": "உள்நுழைய",
+  "auth.signup": "புதிய கணக்கு தொடங்க",
+  "auth.email": "அலுவலக மின்னஞ்சல்",
+  "auth.password": "கடவுச்சொல்",
+  "auth.name": "முழுப் பெயர்",
+  "auth.designation": "பதவி",
+  "auth.have": "ஏற்கனவே பதிவு செய்துள்ளீர்களா? உள்நுழையவும்",
+  "auth.new": "புதிய பயனரா? புதிய கணக்கு தொடங்கவும்",
+  "common.language": "மொழி",
+  "common.loading": "ஏற்றப்படுகிறது…",
+  "common.updated": "புதுப்பிக்கப்பட்டது",
 };
 
 const kn: Dict = {
@@ -673,14 +778,29 @@ export function syncGoogleTranslateEngine(code: LanguageCode) {
   }
 }
 
+const REGIONAL_DEFAULT_LANG: LanguageCode = "ta"; // Regional default for Gobichettipalayam / Erode sector
+
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<LanguageCode>("en");
+  const [lang, setLangState] = useState<LanguageCode>(() => {
+    if (typeof window !== "undefined") {
+      const stored = (window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(LEGACY_STORAGE_KEY)) as LanguageCode | null;
+      if (stored && LANGUAGES.some((l) => l.code === stored)) {
+        return stored;
+      }
+    }
+    return REGIONAL_DEFAULT_LANG;
+  });
 
   useEffect(() => {
     const stored = (window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(LEGACY_STORAGE_KEY)) as LanguageCode | null;
     if (stored && LANGUAGES.some((l) => l.code === stored)) {
       setLangState(stored);
       document.documentElement.lang = stored;
+    } else {
+      // Auto-set regional Tamil default if user has not yet customized language
+      setLangState(REGIONAL_DEFAULT_LANG);
+      document.documentElement.lang = REGIONAL_DEFAULT_LANG;
+      window.localStorage.setItem(STORAGE_KEY, REGIONAL_DEFAULT_LANG);
     }
   }, []);
 

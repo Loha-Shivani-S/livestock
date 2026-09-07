@@ -1,0 +1,22 @@
+{
+  "name": "PashuRakshak — Livestock Surveillance & Field Reporting",
+  "short_name": "PashuRakshak",
+  "description": "Offline-ready livestock disease early warning and grassroots syndromic reporting.",
+  "start_url": "/report",
+  "display": "standalone",
+  "background_color": "#0d131f",
+  "theme_color": "#0d131f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

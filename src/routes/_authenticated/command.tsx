@@ -92,7 +92,7 @@ function CommandPage() {
         try {
           const payload = JSON.parse(evt.data);
           queryClient.invalidateQueries({ queryKey: ["command"] });
-          toast.warning(`🚨 Outbreak Alert: ${payload.title || "Spatiotemporal risk detected"} (${payload.village || "Dindori"})`);
+          toast.warning(`🚨 Outbreak Alert: ${payload.title || "Spatiotemporal risk detected"} (${payload.village || "Gobichettipalayam"})`);
         } catch (e) {
           console.error("SSE alert parse error", e);
         }
@@ -334,30 +334,30 @@ function CommandPage() {
       const res = await createLabRequisition({
         tag_id: tag,
         sample_type: "Blood & Vesicular Epithelium Swab",
-        laboratory: "Regional Disease Diagnostic Laboratory (RDDL) Pune / DDL Nashik",
-        collected_by: "Dr. A. K. Deshmukh (BVO Dindori)",
+        laboratory: "District Veterinary Diagnostic Laboratory (DVDL), Erode",
+        collected_by: "Dr. M. Senthilkumar (BVO Gobichettipalayam)",
       });
       setLabSlipRequisition({
         ...res,
         tag_id: tag,
-        village: targetAnimal?.village || "Dindori",
-        species: targetAnimal?.species || "Cattle (Gir Cow)",
-        owner_name: targetAnimal?.owner_name || "Ramesh Patil",
+        village: targetAnimal?.village || "Gobichettipalayam",
+        species: targetAnimal?.species || "Cattle (Kangayam Cow)",
+        owner_name: targetAnimal?.owner_name || "S. Balasubramaniam",
       });
       toast.success("Generated Official Digital Lab Requisition Slip with Scannable QR Code!");
     } catch {
       setLabSlipRequisition({
         id: "req-" + Date.now(),
-        reference: `RDDL-NSK-${tag.split("-").pop() || "4471"}`,
-        scan_token: `SCAN-RDDL-${tag}`,
+        reference: `DVDL-ERD-${tag.split("-").pop() || "4471"}`,
+        scan_token: `SCAN-DVDL-${tag}`,
         tag_id: tag,
         sample_type: "Blood & Vesicular Epithelium Swab",
-        laboratory: "Regional Disease Diagnostic Laboratory (RDDL) Pune / DDL Nashik",
-        collected_by: "Dr. A. K. Deshmukh (BVO Dindori)",
+        laboratory: "District Veterinary Diagnostic Laboratory (DVDL), Erode",
+        collected_by: "Dr. M. Senthilkumar (BVO Gobichettipalayam)",
         created_at: new Date().toISOString(),
-        village: targetAnimal?.village || "Dindori",
-        species: targetAnimal?.species || "Cattle (Gir Cow)",
-        owner_name: targetAnimal?.owner_name || "Ramesh Patil",
+        village: targetAnimal?.village || "Gobichettipalayam",
+        species: targetAnimal?.species || "Cattle (Kangayam Cow)",
+        owner_name: targetAnimal?.owner_name || "S. Balasubramaniam",
       });
       toast.success("Generated Official Digital Lab Requisition Slip with Scannable QR Code!");
     }
@@ -404,7 +404,7 @@ function CommandPage() {
           {/* Regional Vernacular Advisory */}
           <button
             type="button"
-            onClick={() => setVernacularModal({ open: true, village: "Dindori", tagId: activeTag, disease: "Foot-and-Mouth Disease (FMD)" })}
+            onClick={() => setVernacularModal({ open: true, village: "Gobichettipalayam", tagId: activeTag, disease: "Foot-and-Mouth Disease (FMD)" })}
             className="inline-flex items-center gap-1.5 rounded-md border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition shadow-sm"
           >
             <Radio className="h-3.5 w-3.5" />
@@ -532,7 +532,7 @@ function CommandPage() {
                       </span>
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Target: <span className="font-medium text-foreground">{highestRiskAnimal?.tag_id}</span> ({highestRiskAnimal?.village}, Dindori Sector) · Center: {activeContainmentBuffer.lat.toFixed(4)}°N, {activeContainmentBuffer.lon.toFixed(4)}°E
+                      Target: <span className="font-medium text-foreground">{highestRiskAnimal?.tag_id}</span> ({highestRiskAnimal?.village}, Gobichettipalayam Sector) · Center: {activeContainmentBuffer.lat.toFixed(4)}°N, {activeContainmentBuffer.lon.toFixed(4)}°E
                     </p>
                   </div>
                 </div>
@@ -573,7 +573,7 @@ function CommandPage() {
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-sm font-semibold">{t("cmd.map")}</h2>
                 <AudioSpeakButton
-                  text={`Hotspot surveillance map. Tracking ${mapPoints.length} collared animals across Dindori block.`}
+                  text={`Hotspot surveillance map. Tracking ${mapPoints.length} collared animals across Gobichettipalayam block.`}
                   variant="badge"
                   label="Map Audio"
                 />
@@ -640,7 +640,7 @@ function CommandPage() {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {selectedAnimal?.species || "Cattle"} · {selectedAnimal?.breed || "Gir Cow"} · {selectedAnimal?.village || "Dindori Sector"}
+                {selectedAnimal?.species || "Cattle"} · {selectedAnimal?.breed || "Kangayam Cow"} · {selectedAnimal?.village || "Gobichettipalayam Sector"}
               </p>
             </div>
             <AudioSpeakButton

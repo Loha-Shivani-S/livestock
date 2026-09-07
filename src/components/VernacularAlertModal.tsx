@@ -42,7 +42,7 @@ const REGIONAL_ADVISORIES = {
 export function VernacularAlertModal({
   isOpen,
   onClose,
-  village = "Dindori",
+  village = "Gobichettipalayam",
   tagId = "IN-MH-2031-4471",
   disease = "Foot-and-Mouth Disease (FMD)",
 }: VernacularAlertModalProps) {

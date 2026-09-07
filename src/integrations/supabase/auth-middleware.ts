@@ -64,8 +64,8 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
           userId: 'usr-bvo-demo',
           claims: {
             sub: 'usr-bvo-demo',
-            email: 'bvo.dindori@ahd-mh.gov.in',
-            full_name: 'Dr. Suresh Patil (BVO)',
+            email: 'bvo.gobi@tn.gov.in',
+            full_name: 'Dr. M. Senthilkumar (BVO)',
             role: 'officer',
           },
         },
@@ -89,8 +89,8 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
           userId: 'usr-bvo-demo',
           claims: {
             sub: 'usr-bvo-demo',
-            email: 'bvo.dindori@ahd-mh.gov.in',
-            full_name: 'Dr. Suresh Patil (BVO)',
+            email: 'bvo.gobi@tn.gov.in',
+            full_name: 'Dr. M. Senthilkumar (BVO)',
             role: 'officer',
           },
         },

@@ -105,7 +105,7 @@ export function LabSlipModal({ isOpen, onClose, requisition }: LabSlipModalProps
             {requisition.owner_name && (
               <div className="flex justify-between border-b border-border pb-1">
                 <span className="font-semibold text-muted-foreground">Livestock Owner:</span>
-                <span className="text-foreground">{requisition.owner_name} ({requisition.village || "Dindori"})</span>
+                <span className="text-foreground">{requisition.owner_name} ({requisition.village || "Gobichettipalayam"})</span>
               </div>
             )}
             <div className="flex justify-between border-b border-border pb-1">

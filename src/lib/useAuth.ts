@@ -57,8 +57,8 @@ export function useAuth() {
         id: "usr-bvo-demo",
         app_metadata: {},
         user_metadata: {
-          full_name: "Dr. Suresh Patil (BVO)",
-          designation: "Block Veterinary Officer, Dindori",
+          full_name: "Dr. M. Senthilkumar (BVO)",
+          designation: "Block Veterinary Officer, Gobichettipalayam",
         },
         aud: "authenticated",
         created_at: new Date().toISOString(),
@@ -67,8 +67,8 @@ export function useAuth() {
         id: "usr-paravet-demo",
         app_metadata: {},
         user_metadata: {
-          full_name: "Ramesh Gaikwad (Para-vet)",
-          designation: "Live-stock Development Officer",
+          full_name: "K. Ramasamy (Para-vet)",
+          designation: "Livestock Inspector",
         },
         aud: "authenticated",
         created_at: new Date().toISOString(),
@@ -77,8 +77,8 @@ export function useAuth() {
         id: "usr-farmer-demo",
         app_metadata: {},
         user_metadata: {
-          full_name: "Santosh Kadam (Dairy Farmer)",
-          designation: "Livestock Owner, Dindori",
+          full_name: "S. Balasubramaniam (Dairy Farmer)",
+          designation: "Livestock Owner, Gobichettipalayam",
         },
         aud: "authenticated",
         created_at: new Date().toISOString(),

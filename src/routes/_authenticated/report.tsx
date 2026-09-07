@@ -205,7 +205,7 @@ function ReportPage() {
                 required
                 value={village}
                 onChange={(e) => setVillage(e.target.value)}
-                placeholder="e.g. Dindori, Nanashi, Vani"
+                placeholder="e.g. Gobichettipalayam, Kullampalayam, Lakkampatti"
                 className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>

@@ -64,7 +64,7 @@ function RegisterPage() {
   const [newSex, setNewSex] = useState("female");
   const [newOwner, setNewOwner] = useState("");
   const [newPhone, setNewPhone] = useState("");
-  const [newVillage, setNewVillage] = useState("Dindori");
+  const [newVillage, setNewVillage] = useState("Gobichettipalayam");
   const [newCollar, setNewCollar] = useState("GW-DINDORI-01");
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -348,7 +348,7 @@ function RegisterPage() {
                 <label className="label-caps block mb-1 text-xs">Village / Location *</label>
                 <input
                   required
-                  placeholder="e.g. Dindori"
+                  placeholder="e.g. Gobichettipalayam"
                   value={newVillage}
                   onChange={(e) => setNewVillage(e.target.value)}
                   className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:ring-2 focus:ring-ring"

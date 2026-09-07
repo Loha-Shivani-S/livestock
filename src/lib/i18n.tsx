@@ -42,7 +42,7 @@ const en: Dict = {
   "home.how": "How the chain works",
 
   "cmd.title": "Command console",
-  "cmd.subtitle": "Dindori block, Nashik district",
+  "cmd.subtitle": "Gobichettipalayam block, Erode district",
   "cmd.activeAlerts": "Open alerts",
   "cmd.animalsTracked": "Animals on collar",
   "cmd.avgBdi": "Mean risk index",
@@ -150,7 +150,7 @@ const hi: Dict = {
   "home.stat3": "सक्रिय ग्रामीण गेटवे",
 
   "cmd.title": "कमांड कंसोल",
-  "cmd.subtitle": "दिंडोरी ब्लॉक, नासिक जिला",
+  "cmd.subtitle": "गोबीशेट्टीपलायम ब्लॉक, इरोड जिला",
   "cmd.activeAlerts": "सक्रिय अलर्ट",
   "cmd.animalsTracked": "ट्रैक किए गए पशु",
   "cmd.avgBdi": "औसत जोखिम सूचकांक",
@@ -249,7 +249,7 @@ const mr: Dict = {
   "home.cta.secondary": "नोंद करा",
 
   "cmd.title": "कमांड कन्सोल",
-  "cmd.subtitle": "दिंडोरी तालुका, नाशिक जिल्हा",
+  "cmd.subtitle": "गोबीशेट्टीपलायम तालुका, इरोड जिल्हा",
   "cmd.activeAlerts": "सक्रिय सूचना (अलर्ट)",
   "cmd.animalsTracked": "कॉलर लागलेली जनावरे",
   "cmd.avgBdi": "सरासरी धोका निर्देशांक",

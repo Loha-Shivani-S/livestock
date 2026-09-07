@@ -35,8 +35,8 @@ function OfficersPage() {
   const [designation, setDesignation] = useState("Block Veterinary Officer (BVO)");
   const [phone, setPhone] = useState("+91 ");
   const [email, setEmail] = useState("");
-  const [block, setBlock] = useState("Dindori");
-  const [district, setDistrict] = useState("Nashik");
+  const [block, setBlock] = useState("Gobichettipalayam");
+  const [district, setDistrict] = useState("Erode");
   const [active, setActive] = useState(true);
 
   const { data: officers, isLoading } = useQuery({
@@ -56,8 +56,8 @@ function OfficersPage() {
     setDesignation("Block Veterinary Officer (BVO)");
     setPhone("+91 ");
     setEmail("");
-    setBlock("Dindori");
-    setDistrict("Nashik");
+    setBlock("Gobichettipalayam");
+    setDistrict("Erode");
     setActive(true);
     setModalOpen(false);
   };
@@ -129,7 +129,7 @@ function OfficersPage() {
         </div>
         <div className="flex items-center flex-wrap gap-2">
           <AudioSpeakButton
-            text={`Officer alert directory. ${officers?.length ?? 0} veterinary officers configured across Dindori and Nashik blocks for automated escalation.`}
+            text={`Officer alert directory. ${officers?.length ?? 0} veterinary officers configured across Gobichettipalayam and Erode blocks for automated escalation.`}
             variant="outline"
             label="Directory Audio"
           />
@@ -406,7 +406,7 @@ function OfficersPage() {
       <VernacularAlertModal
         isOpen={vernacularOpen}
         onClose={() => setVernacularOpen(false)}
-        village="Dindori"
+        village="Gobichettipalayam"
         tagId="ALL-SECTORS"
         disease="Foot-and-Mouth Disease (FMD)"
       />

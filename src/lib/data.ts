@@ -140,11 +140,11 @@ export async function processTelemetry(data: z.infer<typeof TelemetryRow>) {
 
   // Check for critical BDI alert
   if (band === "critical") {
-    const village = animal?.village ?? "Dindori";
-    const block = animal?.block ?? "Dindori";
-    const district = animal?.district ?? "Nashik";
-    const lat = data.lat ?? animal?.lat ?? 20.2014;
-    const lon = data.lon ?? animal?.lon ?? 73.8341;
+    const village = animal?.village ?? "Gobichettipalayam";
+    const block = animal?.block ?? "Gobichettipalayam";
+    const district = animal?.district ?? "Erode";
+    const lat = data.lat ?? animal?.lat ?? 11.235695;
+    const lon = data.lon ?? animal?.lon ?? 77.781448;
 
     const alertId = `alt-${Date.now()}`;
     const alertTitle = `Critical BDI spike from collar ${data.tag_id}`;
@@ -333,8 +333,8 @@ export const submitFieldReport = createServerFn({ method: "POST" })
         voice_transcript: z.string().optional(),
         language: z.string().default("en"),
         village: z.string().min(1),
-        block: z.string().default("Dindori"),
-        district: z.string().default("Nashik"),
+        block: z.string().default("Gobichettipalayam"),
+        district: z.string().default("Erode"),
         lat: z.number().optional(),
         lon: z.number().optional(),
         channel: z.string().default("mobile"),
@@ -606,11 +606,11 @@ export const recordGatewayHeartbeat = createServerFn({ method: "POST" })
         id: `gw-${Date.now()}`,
         node_id: data.node_id,
         label: `Gateway ${data.node_id}`,
-        village: "Field Gateway",
-        block: "Dindori",
-        district: "Nashik",
-        lat: 20.2014,
-        lon: 73.8341,
+        village: "Gobichettipalayam",
+        block: "Gobichettipalayam",
+        district: "Erode",
+        lat: 11.235695,
+        lon: 77.781448,
         online: data.online,
         last_seen_at: now,
         queued: data.queued,
@@ -646,8 +646,8 @@ export const saveAlertRecipient = createServerFn({ method: "POST" })
         designation: z.string().min(2),
         phone: z.string().optional(),
         email: z.string().email().optional(),
-        district: z.string().default("Nashik"),
-        block: z.string().default("Dindori"),
+        district: z.string().default("Erode"),
+        block: z.string().default("Gobichettipalayam"),
         active: z.boolean().default(true),
       })
       .parse(data),
@@ -722,16 +722,16 @@ export const registerAnimal = createServerFn({ method: "POST" })
       .object({
         tag_id: z.string().min(3),
         species: z.string().default("Cattle"),
-        breed: z.string().default("Gir Cow"),
+        breed: z.string().default("Kangayam Cow"),
         sex: z.string().default("female"),
         date_of_birth: z.string().optional(),
         owner_name: z.string().min(2),
         owner_phone: z.string().optional(),
         village: z.string().min(2),
-        block: z.string().default("Dindori"),
-        district: z.string().default("Nashik"),
-        lat: z.number().default(20.2014),
-        lon: z.number().default(73.8341),
+        block: z.string().default("Gobichettipalayam"),
+        district: z.string().default("Erode"),
+        lat: z.number().default(11.235695),
+        lon: z.number().default(77.781448),
         collar_node_id: z.string().optional(),
       })
       .parse(data),

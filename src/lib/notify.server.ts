@@ -175,7 +175,7 @@ export async function notifyOfficers(input: NotifyInput) {
     }
 
     const scoped = recipients.filter(
-      (r) => !input.block || r.block.toLowerCase() === input.block.toLowerCase() || r.district.toLowerCase() === (input.district ?? "Nashik").toLowerCase(),
+      (r) => !input.block || r.block.toLowerCase() === input.block.toLowerCase() || r.district.toLowerCase() === (input.district ?? "Erode").toLowerCase(),
     );
 
     const targetList = scoped.length ? scoped : recipients;
@@ -188,7 +188,7 @@ export async function notifyOfficers(input: NotifyInput) {
       "",
       input.detail,
       "",
-      `Location: Village ${input.village}, Block ${input.block ?? "Dindori"}, District ${input.district ?? "Nashik"}`,
+      `Location: Village ${input.village}, Block ${input.block ?? "Gobichettipalayam"}, District ${input.district ?? "Erode"}`,
       `Timestamp: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
       "",
       `Action Required: Open the HerdSentinel Command Console at http://localhost:8080/command to verify vitals and review the 3 km containment zone.`,

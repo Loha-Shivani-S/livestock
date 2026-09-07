@@ -332,10 +332,10 @@ function DevicesPage() {
               onChange={(e) => setSelectedNode(e.target.value)}
               className="mt-1 w-full rounded-md border border-input bg-card px-2 py-1.5 text-sm"
             >
-              <option value="GW-01">GW-01 (Dindori)</option>
-              <option value="GW-02">GW-02 (Vani)</option>
-              <option value="GW-03">GW-03 (Nanashi)</option>
-              <option value="GW-04">GW-04 (Khedgaon)</option>
+              <option value="GW-DINDORI-01">GW-01 (Gobichettipalayam Sector 1)</option>
+              <option value="GW-02">GW-02 (Kullampalayam)</option>
+              <option value="GW-03">GW-03 (Lakkampatti)</option>
+              <option value="GW-04">GW-04 (Pariyoor)</option>
             </select>
           </div>
 

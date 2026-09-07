@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/public/gateway-heartbeat")({
       GET: async () => {
         return Response.json({
           endpoint: "/api/public/gateway-heartbeat",
-          protocol: "PashuRakshak LoRa ESP32 Gateway Heartbeat v1",
+          protocol: "HerdSentinel LoRa Gateway Heartbeat v1",
           status: "healthy",
         });
       },

@@ -1,7 +1,7 @@
 /*
- * PashuRakshak — Village Base Station / Gateway (Receiver Node)
+ * HerdSentinel — Village Base Station / Gateway (Receiver Node)
  * Board  : ESP32 (Wi-Fi) with SX1278 LoRa receiver
- * Uplink : HTTPS POST to the PashuRakshak ingest endpoint
+ * Uplink : HTTPS POST to the HerdSentinel ingest endpoint
  *
  * Receives CSV frames from collars, converts them to JSON and forwards them.
  * Frames that fail to upload are buffered in RAM and retried, so a village
@@ -16,9 +16,9 @@
 #define WIFI_SSID     "village-wifi"
 #define WIFI_PASSWORD "change-me"
 
-// Stable project URLs (do not change when the project is renamed)
-#define INGEST_URL    "https://project--6578632e-13d0-4a37-91fc-d76786d2034e.lovable.app/api/public/ingest"
-#define HEARTBEAT_URL "https://project--6578632e-13d0-4a37-91fc-d76786d2034e.lovable.app/api/public/gateway-heartbeat"
+// Production / Local HerdSentinel Gateway URLs (configure with your host IP/domain)
+#define INGEST_URL    "http://192.168.1.100:8080/api/public/ingest"
+#define HEARTBEAT_URL "http://192.168.1.100:8080/api/public/gateway-heartbeat"
 
 // Paste the value of INGEST_DEVICE_KEY shown on the Collars & gateways screen.
 #define DEVICE_KEY    "PASTE_INGEST_DEVICE_KEY_HERE"

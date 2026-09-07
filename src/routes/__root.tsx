@@ -11,7 +11,7 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { reportTelemetryError } from "../lib/telemetry-error-reporting";
 import { I18nProvider } from "@/lib/i18n";
 
 function NotFoundComponent() {
@@ -40,7 +40,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    reportTelemetryError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
   return (
@@ -79,10 +79,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PashuRakshak — Animal Health Surveillance" },
-      { name: "description", content: "Livestock disease early warning, collar vitals, field reporting and Bharat Pashudhan-aligned animal records for veterinary officers and farmers." },
-      { property: "og:title", content: "PashuRakshak — Animal Health Surveillance" },
-      { property: "og:description", content: "Livestock disease early warning, collar vitals, field reporting and Bharat Pashudhan-aligned animal records." },
+      { title: "HerdSentinel — Multi-Species Disease Surveillance" },
+      { name: "description", content: "Multi-species livestock disease early warning, collar vitals, field reporting and Bharat Pashudhan-aligned records." },
+      { property: "og:title", content: "HerdSentinel — Multi-Species Disease Surveillance" },
+      { property: "og:description", content: "Multi-species livestock disease early warning, collar vitals, field reporting and Bharat Pashudhan-aligned records." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "theme-color", content: "#0d131f" },

@@ -1,5 +1,5 @@
 -- ====================================================================
--- PASHURAKSHAK INITIAL SEED DATA
+-- HERDSENTINEL INITIAL SEED DATA
 -- Bharat Pashudhan (INAPH) 12-digit RFID livestock tags & sensors
 -- ====================================================================
 

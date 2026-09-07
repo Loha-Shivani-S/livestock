@@ -9,10 +9,10 @@ export const Route = createFileRoute("/")({
   component: Home,
   head: () => ({
     meta: [
-      { title: "PashuRakshak — Animal Health Surveillance" },
-      { name: "description", content: "Catch livestock disease outbreaks early with sensor collars, village gateways and voice-first field reporting." },
-      { property: "og:title", content: "PashuRakshak — Animal Health Surveillance" },
-      { property: "og:description", content: "Catch livestock disease outbreaks early with sensor collars, village gateways and voice-first field reporting." },
+      { title: "HerdSentinel — Multi-Species Disease Surveillance" },
+      { name: "description", content: "Catch multi-species livestock disease outbreaks early with sensor collars, village gateways and voice-first field reporting." },
+      { property: "og:title", content: "HerdSentinel — Multi-Species Disease Surveillance" },
+      { property: "og:description", content: "Catch multi-species livestock disease outbreaks early with sensor collars, village gateways and voice-first field reporting." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

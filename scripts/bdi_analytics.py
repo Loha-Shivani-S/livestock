@@ -1,5 +1,5 @@
 """
-PashuRakshak — Biological Predictive Analytics Engine (SIH Problem Statement Deliverable #2)
+HerdSentinel — Biological Predictive Analytics Engine (SIH Problem Statement Deliverable #2)
 ---------------------------------------------------------------------------------------------
 Mathematical algorithms for pre-clinical livestock disease detection:
 1. Cardio-Kinetic Discrepancy (CKD) via Vectorial Dynamic Body Acceleration (VeDBA).
@@ -149,7 +149,7 @@ class BiologicalAnalyticsEngine:
 # Demonstration test runs simulating SIH field cases
 if __name__ == "__main__":
     print("=" * 70)
-    print("PashuRakshak Biological Predictive Analytics Engine — Demonstration")
+    print("HerdSentinel Biological Predictive Analytics Engine — Demonstration")
     print("=" * 70)
 
     # Case A: Acute FMD Fever & Restless Tachycardia

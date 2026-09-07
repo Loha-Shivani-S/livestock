@@ -1,5 +1,5 @@
 /*
- * PashuRakshak — Animal Wearable Collar (Transmitter Node)
+ * HerdSentinel — Multi-Species Wearable Collar (Transmitter Node)
  * Board : Arduino Nano
  * Radio : SX1278 LoRa (433 MHz)
  * Sensors: MPU6050 (VeDBA), DS18B20 (body temperature), MAX30102/KY-039 (pulse), NEO-6M (GPS)

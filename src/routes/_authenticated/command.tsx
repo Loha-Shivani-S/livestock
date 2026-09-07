@@ -41,7 +41,7 @@ export const Route = createFileRoute("/_authenticated/command")({
   component: CommandPage,
   head: () => ({
     meta: [
-      { title: "Command console — PashuRakshak" },
+      { title: "Command console — HerdSentinel" },
       { name: "description", content: "Live epidemiological triage console, vitals and 3 km GIS containment." },
     ],
   }),

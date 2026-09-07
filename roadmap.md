@@ -1,4 +1,4 @@
-# PashuRakshak — Animal Health Surveillance
+# HerdSentinel — Multi-Species Livestock Health Surveillance
 
 ## Tasks
 - [ ] Enable Cloud backend (auth + database)

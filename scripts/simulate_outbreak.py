@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PashuRakshak — Synthetic Spatiotemporal Cluster & Outbreak Simulator
+HerdSentinel — Synthetic Spatiotemporal Cluster & Outbreak Simulator
 SIH Live Demo Rehearsal Script (Deliverable #4)
 ---------------------------------------------------------------------
 Simulates a real-time livestock disease outbreak progression:
@@ -135,7 +135,7 @@ def send_packet(packet: dict) -> dict:
         headers={
             "Content-Type": "application/json",
             "x-device-key": "PR-SEC-LORA-2026",
-            "User-Agent": "PashuRakshak-Simulator/1.0",
+            "User-Agent": "HerdSentinel-Simulator/1.0",
         },
         method="POST"
     )
@@ -149,7 +149,7 @@ def send_packet(packet: dict) -> dict:
 
 def run_simulation():
     print("=" * 75)
-    print("PashuRakshak — Synthetic Livestock Outbreak Generator")
+    print("HerdSentinel — Synthetic Livestock Outbreak Generator")
     print(f"Target Gateway: {INGEST_URL}")
     print("Watch http://localhost:8080/command for live SSE needle updates!")
     print("=" * 75)

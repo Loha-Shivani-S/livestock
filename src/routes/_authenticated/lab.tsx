@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/lab")({
   component: LabPage,
   head: () => ({
     meta: [
-      { title: "Lab Portal & Sample Verification — PashuRakshak" },
+      { title: "Lab Portal & Sample Verification — HerdSentinel" },
       { name: "description", content: "Scan QR requisition slips, record diagnostic findings and update outbreak status." },
     ],
   }),

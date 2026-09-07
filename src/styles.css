@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * PashuRakshak design system — institutional animal-health surveillance.
+ * HerdSentinel design system — multi-species animal-health surveillance.
  * Palette: ink navy, field green, signal amber/red, warm paper neutrals.
  * All colour values are oklch and exposed as semantic tokens only.
  */

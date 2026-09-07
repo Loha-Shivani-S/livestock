@@ -1,5 +1,5 @@
 -- ====================================================================
--- PASHURAKSHAK: LIVESTOCK EARLY WARNING & SURVEILLANCE SCHEMA
+-- HERDSENTINEL: MULTI-SPECIES LIVESTOCK EARLY WARNING SCHEMA
 -- Compatible with Supabase PostgreSQL (PostgREST 14+)
 -- ====================================================================
 
@@ -241,7 +241,7 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vaccinations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.treatments ENABLE ROW LEVEL SECURITY;
 
--- Permissive public read for PashuRakshak surveillance displays
+-- Permissive public read for HerdSentinel surveillance displays
 DROP POLICY IF EXISTS "Public can view animals" ON public.animals;
 CREATE POLICY "Public can view animals" ON public.animals FOR SELECT USING (true);
 

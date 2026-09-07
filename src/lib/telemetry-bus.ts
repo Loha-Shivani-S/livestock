@@ -1,5 +1,5 @@
 /**
- * Central Server-Sent Events (SSE) Bus for PashuRakshak.
+ * Central Server-Sent Events (SSE) Bus for HerdSentinel.
  * Broadcasts real-time telemetry packets, BDI updates, and alerts to connected browsers.
  */
 

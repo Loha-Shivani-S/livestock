@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/report")({
   component: ReportPage,
   head: () => ({
     meta: [
-      { title: "Field report — PashuRakshak" },
+      { title: "Field report — HerdSentinel" },
       { name: "description", content: "Report a sick animal using pictures or voice in your own language, with offline queuing support." },
     ],
   }),

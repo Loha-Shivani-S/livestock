@@ -31,7 +31,7 @@ const pubKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE
 const keyToUse = serviceKey || pubKey;
 
 console.log("==================================================");
-console.log("  PASHURAKSHAK — SUPABASE BACKEND DIAGNOSTICS");
+console.log("  HERDSENTINEL — SUPABASE BACKEND DIAGNOSTICS");
 console.log("==================================================");
 console.log(`Endpoint URL      : ${url}`);
 console.log(`Auth Mode         : ${serviceKey ? "SERVICE_ROLE (RLS Bypass)" : "PUBLISHABLE_KEY (RLS Enforced)"}`);

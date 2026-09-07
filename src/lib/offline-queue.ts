@@ -21,10 +21,10 @@ export interface QueuedFieldReport {
   channel?: string | undefined;
 }
 
-const DB_NAME = "PashuRakshakOfflineDB";
+const DB_NAME = "HerdSentinelOfflineDB";
 const STORE_NAME = "offline_reports";
 const DB_VERSION = 1;
-const FALLBACK_STORAGE_KEY = "pashu_offline_field_reports_queue";
+const FALLBACK_STORAGE_KEY = "herdsentinel_offline_field_reports_queue";
 
 // In-memory cache for fast synchronous reads
 let memoryQueue: QueuedFieldReport[] = [];

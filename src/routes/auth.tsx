@@ -27,8 +27,8 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
   head: () => ({
     meta: [
-      { title: "Sign Up & Login — PashuRakshak" },
-      { name: "description", content: "Register and sign in to the PashuRakshak National Livestock Disease Surveillance Console." },
+      { title: "Sign Up & Login — HerdSentinel" },
+      { name: "description", content: "Register and sign in to the HerdSentinel Multi-Species Disease Surveillance Console." },
     ],
   }),
 });
@@ -153,7 +153,7 @@ function AuthPage() {
           full_name: localAcc.name,
           designation: localAcc.designation,
         });
-        toast.success("Login successful! Welcome to PashuRakshak.");
+        toast.success("Login successful! Welcome to HerdSentinel.");
         setBusy(false);
         return;
       } else {
@@ -183,10 +183,10 @@ function AuthPage() {
         loginUserDirect({
           id: uid,
           email: normEmail,
-          full_name: normEmail.split("@")[0],
+          full_name: normEmail.split("@")[0] || "Registered Officer",
           designation: "Registered Officer",
         });
-        toast.success("Login successful! Welcome to PashuRakshak.");
+        toast.success("Login successful! Welcome to HerdSentinel.");
         setBusy(false);
         return;
       }
@@ -470,7 +470,7 @@ function AuthPage() {
               {mode === "signin" && (
                 <div>
                   <div className="mb-4">
-                    <h2 className="text-xl font-bold tracking-tight">Login to PashuRakshak</h2>
+                    <h2 className="text-xl font-bold tracking-tight">Login to HerdSentinel</h2>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Step 2: Enter your registered email and password to open the website dashboard.
                     </p>

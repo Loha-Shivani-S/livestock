@@ -1,5 +1,5 @@
 /**
- * Multilingual Text-to-Speech (TTS) Engine for PashuRakshak.
+ * Multilingual Text-to-Speech (TTS) Engine for HerdSentinel.
  *
  * Seamlessly supports Indian regional languages:
  * - hi: Hindi (हिन्दी)

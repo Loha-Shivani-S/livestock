@@ -1,7 +1,7 @@
 /**
- * PashuRakshak - Hardware Firebase Bridge
+ * HerdSentinel - Hardware Firebase Bridge
  * 
- * Specifically adapted for your senior's ESP8266 schema (/cow1.json).
+ * Specifically adapted for senior's ESP8266 schema (/cow1.json).
  * Automatically maps:
  *   bpm         -> heart_rate
  *   temp        -> temp (in °C)
@@ -18,7 +18,7 @@ const dbUrl = (process.argv[2] || process.env.FIREBASE_DB_URL || DEFAULT_URL).re
 const localApiUrl = process.env.INGEST_API_URL || "http://localhost:8080/api/public/ingest";
 
 console.log("======================================================================");
-console.log("  PashuRakshak - Senior's ESP8266 Firebase Bridge");
+console.log("  HerdSentinel - ESP8266 Multi-species Telemetry Bridge");
 console.log("======================================================================");
 console.log(`[Firebase Target] ${dbUrl}`);
 console.log(`[Local Dashboard] ${localApiUrl}`);
@@ -74,7 +74,7 @@ async function pollFirebase() {
       console.log(`  Motion (VeDBA): ${vedba} g (ax: ${ax}, ay: ${ay}, az: ${az})`);
       console.log(`  GPS Coordinates: ${lat}, ${lon}`);
 
-      // Forward to PashuRakshak local ingestion API
+      // Forward to HerdSentinel local ingestion API
       const ingestRes = await fetch(localApiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

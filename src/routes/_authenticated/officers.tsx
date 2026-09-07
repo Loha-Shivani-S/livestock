@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/officers")({
   component: OfficersPage,
   head: () => ({
     meta: [
-      { title: "Officer Alert Directory — PashuRakshak" },
+      { title: "Officer Alert Directory — HerdSentinel" },
       { name: "description", content: "Manage Block Veterinary Officers, phone numbers and email destinations for automated alerts." },
     ],
   }),

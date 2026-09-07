@@ -11,8 +11,8 @@ export const Route = createFileRoute("/_authenticated/devices")({
   component: DevicesPage,
   head: () => ({
     meta: [
-      { title: "Collars & gateways — PashuRakshak" },
-      { name: "description", content: "LoRa collar nodes and village gateway status for the PashuRakshak network." },
+      { title: "Collars & gateways — HerdSentinel" },
+      { name: "description", content: "LoRa collar nodes and village gateway status for the HerdSentinel network." },
     ],
   }),
 });

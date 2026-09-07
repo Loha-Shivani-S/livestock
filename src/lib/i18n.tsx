@@ -18,8 +18,8 @@ export type LanguageCode = (typeof LANGUAGES)[number]["code"];
 type Dict = Record<string, string>;
 
 const en: Dict = {
-  "app.name": "PashuRakshak",
-  "app.tagline": "District animal-health surveillance & early warning",
+  "app.name": "HerdSentinel",
+  "app.tagline": "Multi-species herd & flock early warning and outbreak containment",
   "nav.command": "Command",
   "nav.report": "Field report",
   "nav.register": "Animal register",
@@ -127,8 +127,8 @@ const en: Dict = {
 };
 
 const hi: Dict = {
-  "app.name": "पशुरक्षक",
-  "app.tagline": "जिला पशु स्वास्थ्य निगरानी और पूर्व चेतावनी प्रणाली",
+  "app.name": "HerdSentinel",
+  "app.tagline": "सर्व पशुधन व कळप आरोग्य पूर्वसूचना आणि साथीचे नियंत्रण",
   "nav.command": "कमांड कंसोल",
   "nav.report": "बीमारी की सूचना",
   "nav.register": "पशु रजिस्टर",
@@ -229,8 +229,8 @@ const hi: Dict = {
 };
 
 const mr: Dict = {
-  "app.name": "पशुरक्षक",
-  "app.tagline": "जिल्हा पशु आरोग्य देखरेख आणि पूर्वसूचना प्रणाली",
+  "app.name": "HerdSentinel",
+  "app.tagline": "सर्व पशुधन व कळप आरोग्य पूर्वसूचना आणि साथीचे नियंत्रण",
   "nav.command": "कमांड कन्सोल",
   "nav.report": "माहिती नोंदवा",
   "nav.register": "पशु नोंदवही",
@@ -590,7 +590,8 @@ type I18nValue = {
 
 const I18nContext = createContext<I18nValue | null>(null);
 
-const STORAGE_KEY = "pashurakshak.lang";
+const STORAGE_KEY = "herdsentinel.lang";
+const LEGACY_STORAGE_KEY = "livestock_watch.lang";
 
 /**
  * Remove all Google translate cookies across all paths and domains.
@@ -676,7 +677,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<LanguageCode>("en");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as LanguageCode | null;
+    const stored = (window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(LEGACY_STORAGE_KEY)) as LanguageCode | null;
     if (stored && LANGUAGES.some((l) => l.code === stored)) {
       setLangState(stored);
       document.documentElement.lang = stored;

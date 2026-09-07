@@ -1,4 +1,4 @@
-# PashuRakshak collar & gateway firmware
+# HerdSentinel collar & gateway firmware
 
 Two sketches:
 

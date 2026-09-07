@@ -1,5 +1,5 @@
-// PashuRakshak Service Worker for Offline Caching
-const CACHE_NAME = "pashurakshak-v1";
+// HerdSentinel Service Worker for Offline Caching
+const CACHE_NAME = "herdsentinel-v1";
 const STATIC_ASSETS = [
   "/",
   "/report",

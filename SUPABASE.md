@@ -1,6 +1,6 @@
-# PashuRakshak — Supabase Backend Guide
+# HerdSentinel — Supabase Backend Guide
 
-This guide explains how the **Supabase PostgreSQL & Realtime backend** powers the **PashuRakshak** livestock disease surveillance and early warning system.
+This guide explains how the **Supabase PostgreSQL & Realtime backend** powers the **HerdSentinel** multi-species livestock disease surveillance and early warning system.
 
 ---
 
@@ -64,7 +64,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_HUfEH7JBHW44m5l4MH9siw_gBXb-IIG"
 SUPABASE_SERVICE_ROLE_KEY="sb_secret_..."
 ```
 
-> **Note**: If `SUPABASE_SERVICE_ROLE_KEY` is not present, PashuRakshak operates using `SUPABASE_PUBLISHABLE_KEY` with RLS policies and automatically mirrors data to the persistent in-memory fallback store so the application is always 100% operational offline and online.
+> **Note**: If `SUPABASE_SERVICE_ROLE_KEY` is not present, HerdSentinel operates using `SUPABASE_PUBLISHABLE_KEY` with RLS policies and automatically mirrors data to the persistent in-memory fallback store so the application is always 100% operational offline and online.
 
 ---
 

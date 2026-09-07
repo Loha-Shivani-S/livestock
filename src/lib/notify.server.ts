@@ -119,7 +119,7 @@ async function sendSms(to: string, message: string) {
 
 async function sendEmail(to: string, subject: string, text: string) {
   const key = process.env["RESEND_API_KEY"];
-  const from = process.env["ALERT_FROM_EMAIL"] || "alerts@pashurakshak.gov.in";
+  const from = process.env["ALERT_FROM_EMAIL"] || "alerts@herdsentinel.gov.in";
 
   if (!key) {
     // Transparent simulated delivery
@@ -182,7 +182,7 @@ export async function notifyOfficers(input: NotifyInput) {
 
     const subject = `[${input.severity.toUpperCase()}] ${input.title}`;
     const body = [
-      `PASHURAKSHAK ANIMAL HEALTH ALERT — ${input.severity.toUpperCase()}`,
+      `HERDSENTINEL MULTI-SPECIES ANIMAL HEALTH ALERT — ${input.severity.toUpperCase()}`,
       `============================================================`,
       input.title,
       "",
@@ -191,10 +191,10 @@ export async function notifyOfficers(input: NotifyInput) {
       `Location: Village ${input.village}, Block ${input.block ?? "Dindori"}, District ${input.district ?? "Nashik"}`,
       `Timestamp: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
       "",
-      `Action Required: Open the PashuRakshak Command Console at http://localhost:8080/command to verify vitals and review the 3 km containment zone.`,
+      `Action Required: Open the HerdSentinel Command Console at http://localhost:8080/command to verify vitals and review the 3 km containment zone.`,
     ].join("\n");
 
-    const sms = `[PashuRakshak ${input.severity.toUpperCase()}] ${input.title} at ${input.village}. ${input.detail}`.slice(0, 320);
+    const sms = `[HerdSentinel ${input.severity.toUpperCase()}] ${input.title} at ${input.village}. ${input.detail}`.slice(0, 320);
 
     const results = [];
 
@@ -245,7 +245,7 @@ export async function sendTestNotificationToOfficer(recipientId: string) {
   if (!recipient) throw new Error("Officer recipient not found");
 
   return notifyOfficers({
-    title: `[TEST ALERT] PashuRakshak Verification Ping for ${recipient.designation}`,
+    title: `[TEST ALERT] HerdSentinel Verification Ping for ${recipient.designation}`,
     detail: `This is a test broadcast to verify SMS & email routing for ${recipient.full_name}. Sensor telemetry and outbreak alert channels are active.`,
     severity: "low",
     village: recipient.block,

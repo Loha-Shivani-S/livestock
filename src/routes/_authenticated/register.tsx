@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authenticated/register")({
   component: RegisterPage,
   head: () => ({
     meta: [
-      { title: "Animal register — PashuRakshak" },
+      { title: "Animal register — HerdSentinel" },
       { name: "description", content: "Bharat Pashudhan-aligned animal records, vaccination and treatment history." },
     ],
   }),

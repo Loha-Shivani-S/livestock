@@ -496,7 +496,7 @@ class MemoryStore {
       channel: "email",
       recipient: "bvo.dindori@ahd-mh.gov.in",
       subject: "[CRITICAL] Critical BDI spike from collar IN-MH-2031-4471",
-      body: "High-temperature and resting anomaly detected in Dindori. Animal ID: IN-MH-2031-4471. Open PashuRakshak console for 3 km quarantine ring details.",
+      body: "High-temperature and resting anomaly detected in Dindori. Animal ID: IN-MH-2031-4471. Open HerdSentinel console for 3 km quarantine ring details.",
       status: "sent",
       error: null,
       alert_id: "alt-01",

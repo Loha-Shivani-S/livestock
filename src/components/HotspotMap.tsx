@@ -130,19 +130,19 @@ export function HotspotMap({
   const [locatingFarmer, setLocatingFarmer] = useState(false);
   const [mapReady, setMapReady] = useState(false);
 
-  // Validate points or apply stable distributed fallback around Dindori (20.2014, 73.8341)
+  // Validate points or apply stable distributed fallback around real hardware center (11.235695, 77.781448)
   const validPoints = useMemo(() => {
     return points.map((p, idx) => {
       const hasValid =
         typeof p.lat === "number" &&
-        p.lat > 18 &&
-        p.lat < 22 &&
+        !isNaN(p.lat) &&
+        p.lat !== 0 &&
         typeof p.lon === "number" &&
-        p.lon > 72 &&
-        p.lon < 76;
+        !isNaN(p.lon) &&
+        p.lon !== 0;
       if (hasValid) return p;
-      const jitterLat = 20.2014 + (((idx * 17) % 9) - 4) * 0.007;
-      const jitterLon = 73.8341 + (((idx * 23) % 9) - 4) * 0.007;
+      const jitterLat = 11.235695 + (((idx * 17) % 9) - 4) * 0.0018;
+      const jitterLon = 77.781448 + (((idx * 23) % 9) - 4) * 0.0018;
       return { ...p, lat: jitterLat, lon: jitterLon };
     });
   }, [points]);
@@ -218,9 +218,9 @@ export function HotspotMap({
       (err) => {
         setLocatingFarmer(false);
         console.warn("Geolocation failed/denied:", err.message);
-        // Provide friendly fallback: simulate farmer location at Dindori Village Center
-        const fallbackLat = 20.1985;
-        const fallbackLon = 73.8290;
+        // Provide friendly fallback: simulate farmer location at Village Center near pasture
+        const fallbackLat = 11.2330;
+        const fallbackLon = 77.7792;
         setFarmerLocation({ lat: fallbackLat, lon: fallbackLon, accuracy: 25 });
         toast.info("Using Village Base Station location as farmer starting point (Location permission was blocked).");
         
@@ -278,11 +278,11 @@ export function HotspotMap({
 
       if (!isMounted || !mapContainerRef.current) return;
 
-      // Center around Dindori sector by default
-      const defaultCenter = [20.2014, 73.8341];
+      // Center around real hardware coordinates
+      const defaultCenter = [11.235695, 77.781448];
       const map = L.map(mapContainerRef.current, {
         center: defaultCenter as any,
-        zoom: 14,
+        zoom: 16,
         zoomControl: false,
         attributionControl: false,
       });

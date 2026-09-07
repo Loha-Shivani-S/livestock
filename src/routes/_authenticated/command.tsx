@@ -183,14 +183,14 @@ function CommandPage() {
   const activeContainmentBuffer = useMemo(() => {
     if (triageState !== 3 || !highestRiskAnimal) return undefined;
     const vitals = latestByTag.get(highestRiskAnimal.tag_id);
-    const lat = vitals?.lat || highestRiskAnimal.lat || 20.2014;
-    const lon = vitals?.lon || highestRiskAnimal.lon || 73.8341;
+    const lat = vitals?.lat || highestRiskAnimal.lat || 11.235695;
+    const lon = vitals?.lon || highestRiskAnimal.lon || 77.781448;
     return {
       lat,
       lon,
       radiusMeters: 3000,
       active: true,
-      label: `3 km Quarantine Buffer · ${highestRiskAnimal.village || "Dindori"}`,
+      label: `3 km Quarantine Buffer · ${highestRiskAnimal.village || "Sector 1"}`,
     };
   }, [triageState, highestRiskAnimal, latestByTag]);
 
@@ -199,23 +199,15 @@ function CommandPage() {
       const latest = latestByTag.get(a.tag_id);
       const alert = (data?.alerts as any[])?.find((al: any) => al.tag_id === a.tag_id && al.status === "open");
 
-      // Stable distributed coordinate jitter around Dindori HQ (20.2014, 73.8341)
-      const defaultLat = 20.2014 + (((idx * 17) % 9) - 4) * 0.007;
-      const defaultLon = 73.8341 + (((idx * 23) % 9) - 4) * 0.007;
+      // Stable distributed coordinate jitter around real collar location (11.235695, 77.781448)
+      const defaultLat = 11.235695 + (((idx * 17) % 9) - 4) * 0.0018;
+      const defaultLon = 77.781448 + (((idx * 23) % 9) - 4) * 0.0018;
 
-      const lat =
-        typeof latest?.lat === "number" && latest.lat > 18 && latest.lat < 22
-          ? latest.lat
-          : typeof a.lat === "number" && a.lat > 18 && a.lat < 22
-          ? a.lat
-          : defaultLat;
+      const isValidCoord = (val: unknown): val is number =>
+        typeof val === "number" && !isNaN(val) && val !== 0;
 
-      const lon =
-        typeof latest?.lon === "number" && latest.lon > 72 && latest.lon < 76
-          ? latest.lon
-          : typeof a.lon === "number" && a.lon > 72 && a.lon < 76
-          ? a.lon
-          : defaultLon;
+      const lat = isValidCoord(latest?.lat) ? latest.lat : isValidCoord(a.lat) ? a.lat : defaultLat;
+      const lon = isValidCoord(latest?.lon) ? latest.lon : isValidCoord(a.lon) ? a.lon : defaultLon;
 
       const point: MapPoint = {
         id: a.tag_id,
@@ -246,7 +238,7 @@ function CommandPage() {
         temp: 38.6,
         heart_rate: 64,
         ax: 0.18, ay: 0.12, az: 0.85,
-        lat: 20.2014, lon: 73.8341,
+        lat: 11.235695, lon: 77.781448,
         speed: 0.6,
         thi: 71.2,
       });
@@ -258,7 +250,7 @@ function CommandPage() {
         temp: 39.9,
         heart_rate: 88,
         ax: 0.02, ay: 0.01, az: 0.04, // flatlined motion
-        lat: 20.2014, lon: 73.8341,
+        lat: 11.235695, lon: 77.781448,
         speed: 0.0,
         thi: 76.8,
       });
@@ -270,7 +262,7 @@ function CommandPage() {
         temp: 41.4,
         heart_rate: 118,
         ax: 0.01, ay: 0.01, az: 0.02, // severe recumbency
-        lat: 20.2014, lon: 73.8341,
+        lat: 11.235695, lon: 77.781448,
         speed: 0.0,
         thi: 83.5,
       });
@@ -283,7 +275,7 @@ function CommandPage() {
   const handleRunOutbreakSimulation = async () => {
     if (simulating) return;
     setSimulating(true);
-    toast.info("Initiating 3-Stage Outbreak & Spatiotemporal Cluster Simulation across Dindori block...");
+    toast.info("Initiating 3-Stage Outbreak & Spatiotemporal Cluster Simulation across local sector...");
 
     try {
       // Phase 1: Subclinical pyrexia
@@ -293,25 +285,25 @@ function CommandPage() {
         temp: 39.8,
         heart_rate: 84,
         ax: 0.08, ay: 0.04, az: 0.12,
-        lat: 20.2014, lon: 73.8341,
+        lat: 11.235695, lon: 77.781448,
         speed: 0.2,
         thi: 82.1,
       });
-      toast.warning("Phase 1: Subclinical pyrexia in index cow IN-MH-2031-4471 (BDI ~ 0.48)");
+      toast.warning("Phase 1: Subclinical pyrexia in index animal IN-MH-2031-4471 (BDI ~ 0.48)");
       await new Promise((r) => setTimeout(r, 2200));
 
       // Phase 2: Spatiotemporal Cluster
       await ingestTelemetry({
         node_id: "GW-DINDORI-01",
-        tag_id: "IN-MH-15-C8822",
+        tag_id: "IN-MH-2031-8820",
         temp: 40.3,
         heart_rate: 98,
         ax: 0.05, ay: 0.02, az: 0.08,
-        lat: 20.2032, lon: 73.8315,
+        lat: 11.2374, lon: 77.7831,
         speed: 0.1,
         thi: 82.5,
       });
-      toast.warning("Phase 2: Cluster transmission in Dindori village! Secondary animal showing tachycardia.");
+      toast.warning("Phase 2: Cluster transmission in adjacent pasture! Secondary animal showing tachycardia.");
       await new Promise((r) => setTimeout(r, 2200));
 
       // Phase 3: Critical Outbreak Spike & 3km Quarantine Ring Buffer
@@ -321,7 +313,7 @@ function CommandPage() {
         temp: 41.4,
         heart_rate: 118,
         ax: 0.02, ay: 0.01, az: 0.04,
-        lat: 20.2014, lon: 73.8341,
+        lat: 11.235695, lon: 77.781448,
         speed: 0.0,
         thi: 83.2,
       });
